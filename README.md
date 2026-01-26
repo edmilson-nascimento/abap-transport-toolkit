@@ -67,3 +67,52 @@ Resumo das opções: ver **Abordagem recomendada** acima.
 
 ---
 
+---
+
+## 🗺️ Roadmap Sugerido
+
+### **FASE 1: Foundation (MVP)** ⭐ *Vamos fazer AGORA*
+```abap
+└── Listagem básica de componentes
+    ├── CDS View simples (tabela CVERS)
+    ├── Projection básica
+    ├── Service Definition/Binding
+    └── Fiori Elements - List Report
+    
+    📊 Resultado: Lista funcional de componentes
+```
+
+### **FASE 2: Enriquecimento** (próximo passo)
+```abap
+└── Detalhes e associations
+    ├── Add campos calculados (formatações)
+    ├── Value helps
+    ├── Annotations de UI
+    └── Filtros e buscas
+    
+    📊 Resultado: UX melhorada
+```
+
+### **FASE 3: Transport Requests** (sua feature futura)
+```abap
+└── Integração com transportes
+    ├── Association para E070/E071
+    ├── Composition (master-detail)
+    ├── Object Page para detalhes
+    └── Virtual Elements (se precisar)
+    
+    📊 Resultado: Sistema completo
+```
+
+### **FASE 4: Actions & Features** (opcional)
+```abap
+└── Funcionalidades avançadas
+    ├── Actions (criar ToC, release, etc)
+    ├── Validations
+    ├── Determinations
+    └── Side Effects
+    
+    📊 Resultado: App enterprise-grade
+```
+
+
