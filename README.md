@@ -31,12 +31,21 @@ Resumo das opções: ver **Abordagem recomendada** acima.
 ## Entregáveis (artefatos) 🔧
 ### **Componentes que vamos desenvolver:**
 
-- `ZI_SystemComponents` — **CDS View** (fonte de dados)
-- `ZC_SystemComponents` — **CDS Projection** / Exposição
-- **Behavior Definition** — Regras de negócio (se necessário)
-- **Service Definition** — OData V4
-- **Service Binding** — Fiori Elements (UI annotation binding)
-- **Fiori Elements App** — List Report / Object Page
+```
+📦 Sistema de Versões S/4HANA (ABAP Cloud)
+├── 🗄️ CDS View (Dados)
+│   └── ZI_SystemComponents
+├── 🎨 CDS Projection (Exposição)
+│   └── ZC_SystemComponents  
+├── ⚙️ Behavior Definition
+│   └── Lógica de negócio (se necessário)
+├── 🌐 Service Definition
+│   └── Exposição OData V4
+├── 🔗 Service Binding
+│   └── UI5/Fiori Elements
+└── 📱 Fiori Elements App
+    └── List Report / Object Page
+```
 
 ---
 
