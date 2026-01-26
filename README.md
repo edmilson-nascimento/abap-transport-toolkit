@@ -1,5 +1,24 @@
 # abap-transport-toolkit — Guia de Implementação 🚀
 
+## Badges
+
+### Eclipse ADT
+![Static Badge](https://img.shields.io/badge/eclipse-4.35.0-2C2255?logo=eclipse&logoColor=white) ![Static Badge](https://img.shields.io/badge/eclipse%20adt-4.35.0-2C2255?logo=eclipse&logoColor=white)
+
+### Tecnologias e Plataforma
+![Static Badge](https://img.shields.io/badge/development-abap-blue) ![Static Badge](https://img.shields.io/badge/SAP-0FAAFF?logo=sap&logoColor=white) ![Static Badge](https://img.shields.io/badge/ABAP-0FAAFF?logo=sap&logoColor=white) ![Static Badge](https://img.shields.io/badge/Eclipse_ADT-2C2255?logo=eclipse&logoColor=white) ![Static Badge](https://img.shields.io/badge/BTP-0FAAFF?logo=sap&logoColor=white) ![Static Badge](https://img.shields.io/badge/Cloud-0089D6?logo=sap&logoColor=white) ![Static Badge](https://img.shields.io/badge/RAP-050002?logo=sap&logoColor=white)
+
+### Versões / Ambiente
+![ABAP](https://img.shields.io/badge/ABAP-7.4-blue?style=flat&logo=sap) ![ABAP Version](https://img.shields.io/badge/ABAP-7.4%2B-brightgreen) ![S/4HANA](https://img.shields.io/badge/S%2F4HANA-2023-blue?style=flat&logo=sap) ![SAP](https://img.shields.io/badge/SAP-On%20Premise-blue?style=flat&logo=sap) ![ABAP OO](https://img.shields.io/badge/ABAP-Object%20Oriented-orange?style=flat&logo=sap)
+
+### Comunidade / Ferramentas úteis
+[![ABAP Cleaner](https://img.shields.io/github/stars/SAP/abap-cleaner?label=ABAP%20Cleaner&style=social)](https://github.com/SAP/abap-cleaner) [![abapGit](https://img.shields.io/github/stars/larshp/abapGit?label=abapGit&style=social)](https://github.com/larshp/abapGit)
+
+### GitHub / status
+![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=flat&logo=github) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/edmilson-nascimento/abap-7.4?style=flat) ![GitHub last commit](https://img.shields.io/github/last-commit/edmilson-nascimento/abap-7.4?style=flat) ![GitHub issues](https://img.shields.io/github/issues/edmilson-nascimento/abap-7.4?style=flat) ![GitHub stars](https://img.shields.io/github/stars/edmilson-nascimento/abap-7.4?style=flat) ![License](https://img.shields.io/github/license/edmilson-nascimento/abap-7.4?style=flat)
+
+---
+
 ## Visão geral
 Este repositório descreve um **guia prático** para construir uma solução **ABAP Cloud–compliant** que visualize componentes e versões do sistema S/4HANA. O objetivo é entregar uma aplicação transparente, testável e pronta para Fiori (List Report + Object Page).
 
