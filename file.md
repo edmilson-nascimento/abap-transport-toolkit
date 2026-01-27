@@ -990,3 +990,6 @@ For questions, suggestions, or feedback:
 ---
 
 **Made with ❤️ using ABAP Cloud & RAP**
+
+---
+Faz sentido algo de ter um rastreio do objeto, para eu saber quais requests ele passou para eu verificar se algo foi alterado
