@@ -121,14 +121,23 @@ Transport Request Viewer
 - Responsive Fiori UI
 - Zero custom JavaScript required
 
+---
+
 #### **📝 Implementation Steps**
 
 <details>
-<summary><b>Step 1: Create CDS Interface View</b></summary>
+<summary><b>Step 1: Create CDS Interface View (ZTR_I_TRANSPORT_REQUEST)</b></summary>
 
-**Object:** `ZTR_I_TRANSPORT_REQUEST`  
-**Type:** Data Definition  
-**Description:** Transport Request - Interface View
+### Object Details
+- **Name:** `ZTR_I_TRANSPORT_REQUEST`
+- **Type:** Data Definition
+- **Description:** Transport Request - Interface View
+- **Package:** `ZTRANSPORT_TOOLKIT`
+
+### Purpose
+Provides the data foundation by selecting transport request headers from table E070 and joining with E07T for descriptions.
+
+### Code
 
 ```abap
 @AbapCatalog.viewEnhancementCategory: [#NONE]
@@ -176,20 +185,35 @@ where
   strkorr = ''  // Only ORDERs (not TASKs)
 ```
 
-**Actions:**
-1. Create Data Definition in ADT
+### Key Features
+- **Root View:** Can be exposed directly in Service Definition
+- **Association to E07T:** Gets description in session language
+- **Filter:** Only main requests (WHERE strkorr = ''), excludes tasks
+- **Semantic Labels:** All fields have user-friendly labels
+
+### Actions
+1. Right-click package → New → Other ABAP Repository Object → Data Definition
 2. Copy code above
 3. Save (Ctrl+S)
 4. Activate (Ctrl+F3)
 
 </details>
 
-<details>
-<summary><b>Step 2: Create CDS Projection View</b></summary>
+---
 
-**Object:** `ZTR_C_TRANSPORT_REQUEST`  
-**Type:** Data Definition  
-**Description:** Transport Request - Projection View
+<details>
+<summary><b>Step 2: Create CDS Projection View (ZTR_C_TRANSPORT_REQUEST)</b></summary>
+
+### Object Details
+- **Name:** `ZTR_C_TRANSPORT_REQUEST`
+- **Type:** Data Definition
+- **Description:** Transport Request - Projection View
+- **Package:** `ZTRANSPORT_TOOLKIT`
+
+### Purpose
+Consumption layer that exposes the Interface View with search capabilities and prepares for UI annotations.
+
+### Code
 
 ```abap
 @EndUserText.label: 'Transport Request - Projection View'
@@ -228,20 +252,36 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
 }
 ```
 
-**Actions:**
-1. Create Data Definition in ADT
+### Key Features
+- **Metadata.allowExtensions:** Enables UI annotations via Metadata Extension
+- **Search.searchable:** Enables global search in Fiori Elements
+- **Search.defaultSearchElement:** Makes fields searchable with fuzzy matching
+- **Provider Contract:** `transactional_query` for read-only OData queries
+
+### Actions
+1. Right-click package → New → Other ABAP Repository Object → Data Definition
 2. Copy code above
 3. Save (Ctrl+S)
 4. Activate (Ctrl+F3)
 
 </details>
 
-<details>
-<summary><b>Step 3: Create Metadata Extension</b></summary>
+---
 
-**Object:** `ZTR_C_TRANSPORT_REQUEST`  
-**Type:** Metadata Extension  
-**Description:** Transport Request - UI Annotations
+<details>
+<summary><b>Step 3: Create Metadata Extension (ZTR_C_TRANSPORT_REQUEST)</b></summary>
+
+### Object Details
+- **Name:** `ZTR_C_TRANSPORT_REQUEST`
+- **Type:** Metadata Extension
+- **Description:** Transport Request - UI Annotations
+- **Package:** `ZTRANSPORT_TOOLKIT`
+- **Annotates:** `ZTR_C_TRANSPORT_REQUEST`
+
+### Purpose
+Defines UI behavior for Fiori Elements including List Report columns, filters, and Object Page structure.
+
+### Code
 
 ```abap
 @Metadata.layer: #CORE
@@ -323,20 +363,42 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
 }
 ```
 
-**Actions:**
-1. Right-click on `ZTR_C_TRANSPORT_REQUEST` → New Metadata Extension
+### Key Features
+- **@UI.headerInfo:** Defines Object Page header with title and description
+- **@UI.lineItem:** Configures table columns in List Report
+- **@UI.selectionField:** Adds fields to filter bar
+- **@UI.identification:** Shows fields in Object Page detail section
+- **importance:** Controls field visibility on small screens (HIGH/MEDIUM/LOW)
+
+### Annotation Types Explained
+- `lineItem` = Table columns in list
+- `selectionField` = Filters in top bar
+- `identification` = Fields in detail view
+- `position` = Display order (10, 20, 30...)
+
+### Actions
+1. Right-click on `ZTR_C_TRANSPORT_REQUEST` (Projection View) → New Metadata Extension
 2. Copy code above
 3. Save (Ctrl+S)
 4. Activate (Ctrl+F3)
 
 </details>
 
-<details>
-<summary><b>Step 4: Create Service Definition</b></summary>
+---
 
-**Object:** `ZTR_UI_TRANSPORT_REQUEST_O4`  
-**Type:** Service Definition  
-**Description:** Transport Request Service Definition
+<details>
+<summary><b>Step 4: Create Service Definition (ZTR_UI_TRANSPORT_REQUEST_O4)</b></summary>
+
+### Object Details
+- **Name:** `ZTR_UI_TRANSPORT_REQUEST_O4`
+- **Type:** Service Definition
+- **Description:** Transport Request Service Definition
+- **Package:** `ZTRANSPORT_TOOLKIT`
+
+### Purpose
+Exposes the Projection View as an OData entity, creating the service contract for consumption.
+
+### Code
 
 ```abap
 @EndUserText.label: 'Transport Request Service Definition'
@@ -345,29 +407,110 @@ define service ZTR_UI_TRANSPORT_REQUEST_O4 {
 }
 ```
 
-**Actions:**
-1. Create Service Definition in ADT
+### Key Features
+- **expose:** Makes the CDS view available as OData entity
+- **as TransportRequest:** Defines the entity name in OData metadata
+- **Service Name Convention:** `Z[PREFIX]_UI_[ENTITY]_O4` (O4 = OData V4 ready)
+
+### What This Creates
+- OData metadata document ($metadata)
+- Entity set endpoint: `/TransportRequest`
+- Standard OData operations (GET, filter, sort, etc.)
+
+### Future Expansion
+When adding related entities (objects, tasks), simply add more expose statements:
+```abap
+define service ZTR_UI_TRANSPORT_REQUEST_O4 {
+  expose ZTR_C_TRANSPORT_REQUEST as TransportRequest;
+  expose ZTR_C_TRANSPORT_OBJECT as TransportObject;    // FASE 3
+  expose ZTR_C_TRANSPORT_TASK as TransportTask;        // FASE 4
+}
+```
+
+### Actions
+1. Right-click package → New → Other ABAP Repository Object → Service Definition
 2. Copy code above
 3. Save (Ctrl+S)
 4. Activate (Ctrl+F3)
 
 </details>
 
+---
+
 <details>
-<summary><b>Step 5: Create Service Binding</b></summary>
+<summary><b>Step 5: Create Service Binding (ZTR_UI_TRANSPORT_REQUEST)</b></summary>
 
-**Object:** `ZTR_UI_TRANSPORT_REQUEST`  
-**Type:** Service Binding  
-**Description:** Transport Request - UI Service Binding  
-**Binding Type:** OData V2 - UI
+### Object Details
+- **Name:** `ZTR_UI_TRANSPORT_REQUEST`
+- **Type:** Service Binding
+- **Description:** Transport Request - UI Service Binding
+- **Binding Type:** `OData V2 - UI`
+- **Service Definition:** `ZTR_UI_TRANSPORT_REQUEST_O4`
+- **Package:** `ZTRANSPORT_TOOLKIT`
 
-**Actions:**
-1. Right-click on `ZTR_UI_TRANSPORT_REQUEST_O4` → New Service Binding
-2. Select **Binding Type:** `OData V2 - UI`
-3. Save
-4. Activate (Ctrl+F3)
-5. **PUBLISH** (click Publish button) ⚠️ Critical step!
-6. Click **Preview** to test
+### Purpose
+Binds the Service Definition to OData V2 protocol and publishes the service for Fiori Elements consumption.
+
+### Creation Steps
+1. Right-click on `ZTR_UI_TRANSPORT_REQUEST_O4` → **New Service Binding**
+2. Fill wizard fields:
+   - Name: `ZTR_UI_TRANSPORT_REQUEST`
+   - Description: `Transport Request - UI Service Binding`
+   - **Binding Type:** Select `OData V2 - UI` (NOT V4 - for compatibility)
+   - Service Definition: `ZTR_UI_TRANSPORT_REQUEST_O4`
+3. Click **Finish**
+
+### Post-Creation Actions
+
+#### ⚠️ CRITICAL: Activate AND Publish
+
+1. **Activate** (Ctrl+F3)
+   - Makes the service binding available in the system
+2. **Publish** (Click "Publish" button in editor)
+   - ⚠️ **This step is MANDATORY!**
+   - Without publishing, the service won't be accessible
+   - Status changes from "Unpublished" to "Published"
+
+### Testing
+
+1. Click **Preview** button in Service Binding editor
+2. Select `TransportRequest` entity
+3. Browser opens with Fiori Elements app
+4. Test filters, search, and drill-down
+
+### Service Binding Editor View
+
+After activation, you'll see:
+```
+┌─────────────────────────────────────────────────┐
+│ ZTR_UI_TRANSPORT_REQUEST (Service Binding)     │
+├─────────────────────────────────────────────────┤
+│ Binding Type: OData V2 - UI                    │
+│ Status: [Click Publish!] ⚠️                    │
+├─────────────────────────────────────────────────┤
+│ Entity Set Name     | Entity Type              │
+├─────────────────────────────────────────────────┤
+│ TransportRequest    | TransportRequestType     │
+└─────────────────────────────────────────────────┘
+
+Actions: [Activate] [Publish] [Preview]
+```
+
+### Why OData V2 Instead of V4?
+
+- **Better compatibility** with S/4HANA 2023 on-premise
+- **No additional configuration** required
+- **Same Fiori Elements features** as V4
+- **Easier troubleshooting** (more mature protocol)
+
+### Troubleshooting
+
+**Issue:** Publishing fails with error about Customizing Client
+
+**Solution:**
+- Ensure you're in development client (100, not 000)
+- Check you selected "OData V2 - UI" binding type
+- Verify you have authorization for service publication
 
 </details>
 
@@ -672,20 +815,6 @@ Package: ZTRANSPORT_TOOLKIT
 3. **Sort** columns by clicking headers
 4. **Click** any row to view detailed Object Page
 5. **Navigate** back using breadcrumb
-
----
-
-## 📸 Screenshots
-
-### List Report
-![List Report showing transport requests with filters and table](docs/screenshots/list-report.png)
-
-*35,363+ transport requests with 6 filter fields and sortable columns*
-
-### Object Page
-![Object Page showing detailed transport request information](docs/screenshots/object-page.png)
-
-*Detailed view with all transport metadata and associations*
 
 ---
 
