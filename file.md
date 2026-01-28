@@ -993,3 +993,7 @@ For questions, suggestions, or feedback:
 
 ---
 Faz sentido algo de ter um rastreio do objeto, para eu saber quais requests ele passou para eu verificar se algo foi alterado
+
+Duas validações são feitas antes dos transportes: 
+SCC1 - Client Copy - Special Selections
+/SDF/TRCHECK - Check Transport Requests 
