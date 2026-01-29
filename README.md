@@ -358,7 +358,7 @@ StatusText;  // Display description with colors
 
 **📸 Screenshot:**
 
-![FASE 2.1 Result](files/img/fase2-final.png)
+![FASE 2.1 Result](./files/img/fase2-final.png)
 
 *Professional UI with semantic colors and descriptions*
 
