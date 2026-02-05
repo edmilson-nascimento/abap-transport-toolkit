@@ -14,13 +14,13 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 ## 🚀 Quick Start
 
 ```bash
-1. Open ADT (Eclipse) → Navigate to Service Binding: ZTR_UI_TRANSPORT_REQUEST
+1. Open ADT (Eclipse) → Navigate to Service Binding: ZTR_UI_TRANSPORT_REQUEST_2
 2. Click "Preview" → Select "TransportRequest" entity
 3. 🎉 App launches with 35,000+ transport requests!
 ```
 
-**Current Status:** FASE 2.1 Complete ✅  
-**Features:** Color-coded status • User-friendly descriptions • Advanced filtering
+**Current Status:** FASE 2.2 Complete ✅  
+**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps
 
 ---
 
@@ -48,6 +48,7 @@ Replace legacy ALV-based transport tools with modern **Fiori Elements** applicat
 - ✅ **Replace** legacy reports (ALV) with Fiori Elements
 - ✅ **Enable** filtering, searching, drill-down
 - ✅ **Add** colors and user-friendly descriptions
+- ✅ **Implement** dropdown filters with Value Helps
 - ▫️ **Automate** Transport of Copies (ToC) creation
 - ▫️ **Track** objects across transport requests (E071)
 - ▫️ **Implement** batch operations and advanced actions
@@ -79,136 +80,6 @@ Transport Request Viewer
 - Object Page drill-down
 - Zero custom JavaScript
 
-<details>
-<summary><b>📝 View Implementation Steps (FASE 1)</b></summary>
-
-### Step 1: Create Interface View
-
-**Object:** `ZTR_I_TRANSPORT_REQUEST` (Data Definition)
-
-```abap
-@AbapCatalog.viewEnhancementCategory: [#NONE]
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@EndUserText.label: 'Transport Request - Interface View'
-@Metadata.ignorePropagatedAnnotations: true
-
-define root view entity ZTR_I_TRANSPORT_REQUEST
-  as select from e070
-  association [0..1] to e07t as _Text 
-    on  $projection.TransportRequest = _Text.trkorr
-    and _Text.langu = $session.system_language
-{
-  key trkorr        as TransportRequest,
-      trfunction    as RequestType,
-      trstatus      as RequestStatus,
-      tarsystem     as TargetSystem,
-      as4user       as Owner,
-      as4date       as CreationDate,
-      as4time       as CreationTime,
-      strkorr       as ParentRequest,
-      _Text.as4text as Description,
-      _Text
-}
-where strkorr = ''  // Only ORDERs (not TASKs)
-```
-
-### Step 2: Create Projection View
-
-**Object:** `ZTR_C_TRANSPORT_REQUEST` (Data Definition)
-
-```abap
-@EndUserText.label: 'Transport Request - Projection'
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@Metadata.allowExtensions: true
-@Search.searchable: true
-
-define root view entity ZTR_C_TRANSPORT_REQUEST
-  provider contract transactional_query
-  as projection on ZTR_I_TRANSPORT_REQUEST
-{
-      @Search.defaultSearchElement: true
-      @Search.fuzzinessThreshold: 0.8
-  key TransportRequest,
-      @Search.defaultSearchElement: true
-      RequestType,
-      RequestStatus,
-      @Search.defaultSearchElement: true
-      TargetSystem,
-      @Search.defaultSearchElement: true
-      Owner,
-      CreationDate,
-      CreationTime,
-      ParentRequest,
-      @Search.defaultSearchElement: true
-      Description,
-      _Text
-}
-```
-
-### Step 3: Create Metadata Extension
-
-**Object:** `ZTR_C_TRANSPORT_REQUEST` (Metadata Extension)
-
-```abap
-@Metadata.layer: #CORE
-@UI: {
-  headerInfo: {
-    typeName: 'Transport Request',
-    typeNamePlural: 'Transport Requests',
-    title: { type: #STANDARD, value: 'TransportRequest' },
-    description: { value: 'Description' }
-  }
-}
-
-annotate view ZTR_C_TRANSPORT_REQUEST with
-{
-  @UI: {
-    lineItem: [{ position: 10, importance: #HIGH }],
-    selectionField: [{ position: 10 }],
-    identification: [{ position: 10 }]
-  }
-  TransportRequest;
-
-  @UI: {
-    lineItem: [{ position: 20, importance: #HIGH }],
-    selectionField: [{ position: 20 }],
-    identification: [{ position: 20 }]
-  }
-  RequestType;
-
-  @UI: {
-    lineItem: [{ position: 30, importance: #HIGH }],
-    selectionField: [{ position: 30 }],
-    identification: [{ position: 30 }]
-  }
-  RequestStatus;
-
-  // ... (other fields follow same pattern)
-}
-```
-
-### Step 4: Create Service Definition
-
-**Object:** `ZTR_UI_TRANSPORT_REQUEST_O4` (Service Definition)
-
-```abap
-@EndUserText.label: 'Transport Request Service'
-define service ZTR_UI_TRANSPORT_REQUEST_O4 {
-  expose ZTR_C_TRANSPORT_REQUEST as TransportRequest;
-}
-```
-
-### Step 5: Create Service Binding
-
-**Steps:**
-1. Right-click Service Definition → New Service Binding
-2. Name: `ZTR_UI_TRANSPORT_REQUEST`
-3. Type: **OData V2 - UI** (better compatibility)
-4. Activate → **Publish** (mandatory!)
-5. Click Preview → Select entity → Test
-
-</details>
-
 ---
 
 ### **FASE 2.1: Visual Enhancements** ✅ COMPLETE
@@ -236,154 +107,39 @@ Visual Improvements
 📊 Result: Color-coded UI with intuitive labels
 ```
 
-**Key Changes:**
-- Added 3 calculated fields (StatusCriticality, RequestTypeText, StatusText)
-- Linked criticality to UI display
-- Hidden technical codes, displayed friendly descriptions
-
-<details>
-<summary><b>📝 View Implementation Steps (FASE 2.1)</b></summary>
-
-### Step 1: Add Status Colors (Criticality)
-
-**Modified:** `ZTR_I_TRANSPORT_REQUEST` - Add calculated field:
-
-```abap
-// Add after Description field
-case trstatus
-  when 'D' then 3  // Released = Green
-  when 'L' then 2  // Modifiable = Yellow
-  when 'R' then 1  // Released with Errors = Red
-  else 0           // Others = Neutral
-end as StatusCriticality,
-```
-
-**Modified:** `ZTR_C_TRANSPORT_REQUEST` - Expose field:
-
-```abap
-// Add after Description
-StatusCriticality,
-```
-
-**Modified:** Metadata Extension - Link to UI:
-
-```abap
-@UI: {
-  lineItem: [{ 
-    position: 30, 
-    importance: #HIGH,
-    criticality: 'StatusCriticality'  // Add this!
-  }],
-  // ... rest stays same
-}
-RequestStatus;
-
-@UI.hidden: true
-StatusCriticality;  // Hide from display
-```
-
-### Step 2: Add Request Type Descriptions
-
-**Modified:** `ZTR_I_TRANSPORT_REQUEST` - Add calculated field:
-
-```abap
-case trfunction
-  when 'K' then 'Workbench'
-  when 'W' then 'Customizing'
-  when 'S' then 'Transport of Copies'
-  when 'T' then 'Transport of Copies'
-  else 'Other'
-end as RequestTypeText,
-```
-
-**Modified:** `ZTR_C_TRANSPORT_REQUEST` - Expose field:
-
-```abap
-@Search.defaultSearchElement: true
-RequestTypeText,
-```
-
-**Modified:** Metadata Extension:
-
-```abap
-@UI.hidden: true
-RequestType;  // Hide technical code
-
-@UI: {
-  lineItem: [{ position: 20, importance: #HIGH, label: 'Request Type' }],
-  selectionField: [{ position: 20 }],
-  identification: [{ position: 20 }]
-}
-RequestTypeText;  // Display description
-```
-
-### Step 3: Add Status Descriptions
-
-**Modified:** `ZTR_I_TRANSPORT_REQUEST` - Add calculated field:
-
-```abap
-case trstatus
-  when 'D' then 'Released'
-  when 'L' then 'Modifiable'
-  when 'R' then 'Released with Errors'
-  when 'N' then 'Not Released'
-  else 'Unknown'
-end as StatusText,
-```
-
-**Modified:** `ZTR_C_TRANSPORT_REQUEST` - Expose field:
-
-```abap
-@Search.defaultSearchElement: true
-StatusText,
-```
-
-**Modified:** Metadata Extension:
-
-```abap
-@UI.hidden: true
-RequestStatus;  // Hide technical code
-
-@UI: {
-  lineItem: [{ 
-    position: 30, 
-    importance: #HIGH,
-    label: 'Status',
-    criticality: 'StatusCriticality'  // Keep colors!
-  }],
-  selectionField: [{ position: 30 }],
-  identification: [{ position: 30, criticality: 'StatusCriticality' }]
-}
-StatusText;  // Display description with colors
-```
-
-</details>
-
 **📸 Screenshot:**
 
-![FASE 2.1 Result](./files/img/fase2-final.png)
+![FASE 2.1 Result](./files/img/fase2-1-final.png)
 
 *Professional UI with semantic colors and descriptions*
 
 ---
 
-### **FASE 2.2: Value Helps & Filters** ▫️ NEXT
+### **FASE 2.2: Value Helps & Filters** ✅ COMPLETE
 
-**Goal:** Enhanced F4 helps and advanced filtering  
-**Duration:** ~1.5 hours
+**Goal:** Enhanced F4 helps and dropdown filters  
+**Duration:** ~1.5 hours | **Lines Added:** ~150 ABAP
 
 ```
-Search Helps (F4)
-├── ▫️ Status Value Help (DD07T domain values)
-├── ▫️ Type Value Help (DD07T domain values)
-└── ▫️ User Search Help (user master data)
+Value Helps Implementation
+├── ✅ Status Value Help (Dropdown from DD07T)
+├── ✅ Request Type Value Help (Dropdown from DD07T)
+├── ✅ User/Owner Value Help (Dialog from E070)
+├── ✅ Filter optimization (removed duplicates)
+└── ✅ Service Definition updated with VH entities
 
-📊 Result: Better UX with dropdown filters
+📊 Result: Dropdown filters for Status and Type, Dialog for Owner
 ```
+
+**📸 Screenshot:**
+
+![FASE 2.2 Result](./files/img/fase2-2-final.png)
+
+*Dropdown filters with Value Helps*
 
 ---
 
-### **FASE 2.3: Object Page Enhancements** ▫️
+### **FASE 2.3: Object Page Enhancements** ▫️ NEXT
 
 **Goal:** Better detail view organization  
 **Duration:** ~1 hour
@@ -494,28 +250,401 @@ Action Library
 ```
 Package: ZTRANSPORT_TOOLKIT
 │
-├── 📄 CDS Views
-│   ├── ZTR_I_TRANSPORT_REQUEST (Interface - v1.1)
-│   │   ├── Source: E070 + E07T
-│   │   ├── Calculated: StatusCriticality, RequestTypeText, StatusText
-│   │   └── Filter: strkorr = '' (ORDERs only)
-│   │
-│   └── ZTR_C_TRANSPORT_REQUEST (Projection - v1.1)
-│       ├── Search: Enabled on 5 fields
-│       ├── Exposes: All calculated fields
-│       └── Hides: Technical codes
+├── 📄 CDS Views (5)
+│   ├── ZTR_I_TRANSPORT_REQUEST      (Interface View)
+│   ├── ZTR_C_TRANSPORT_REQUEST      (Projection View)
+│   ├── ZTR_I_TRANSPORT_STATUS_VH    (Value Help - Status)
+│   ├── ZTR_I_TRANSPORT_TYPE_VH      (Value Help - Type)
+│   └── ZTR_I_USER_VH                (Value Help - User)
 │
-├── 🎨 Metadata Extension
-│   └── ZTR_C_TRANSPORT_REQUEST (v1.1)
-│       ├── Criticality: Linked colors
-│       └── Labels: User-friendly descriptions
+├── 🎨 Metadata Extensions (1)
+│   └── ZTR_C_TRANSPORT_REQUEST
 │
-├── 🌐 Service Definition
+├── 🌐 Service Definitions (1)
 │   └── ZTR_UI_TRANSPORT_REQUEST_O4
 │
-└── 🔗 Service Binding
-    └── ZTR_UI_TRANSPORT_REQUEST (OData V2 - Published)
+└── 🔗 Service Bindings (2)
+    ├── ZTR_UI_TRANSPORT_REQUEST     (OData V4 - if available)
+    └── ZTR_UI_TRANSPORT_REQUEST_2   (OData V2 - recommended)
 ```
+
+---
+
+## 📝 Complete Source Code
+
+<details>
+<summary><b>📄 ZTR_I_TRANSPORT_REQUEST (Interface View)</b></summary>
+
+```abap
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Transport Request - Interface View'
+@Metadata.ignorePropagatedAnnotations: true
+
+define root view entity ZTR_I_TRANSPORT_REQUEST
+  as select from e070
+
+  association [0..1] to e07t as _Text on  $projection.TransportRequest = _Text.trkorr
+                                      and _Text.langu                   = $session.system_language
+// Value Help Associations
+  association [0..1] to ZTR_I_TRANSPORT_STATUS_VH as _StatusVH
+    on $projection.RequestStatus = _StatusVH.Status
+  association [0..1] to ZTR_I_TRANSPORT_TYPE_VH   as _TypeVH
+    on $projection.RequestType = _TypeVH.RequestType
+  association [0..1] to ZTR_I_USER_VH             as _UserVH
+    on $projection.Owner = _UserVH.UserID
+
+{
+      @EndUserText.label: 'Transport Request'
+  key trkorr       as TransportRequest,
+
+      @EndUserText.label: 'Request Type'
+      trfunction   as RequestType,
+
+      @EndUserText.label: 'Request Status'
+      trstatus     as RequestStatus,
+
+      @EndUserText.label: 'Target System'
+      tarsystem    as TargetSystem,
+
+      @EndUserText.label: 'Owner'
+      as4user      as Owner,
+
+      @EndUserText.label: 'Creation Date'
+      as4date      as CreationDate,
+
+      @EndUserText.label: 'Creation Time'
+      as4time      as CreationTime,
+
+      @EndUserText.label: 'Parent Request'
+      strkorr      as ParentRequest,
+
+      @EndUserText.label: 'Description'
+      _Text.as4text as Description,
+
+      // Criticality for Status Colors
+      @EndUserText.label: 'Status Criticality'
+      case trstatus
+        when 'D' then 3  // Released = Green (Positive)
+        when 'L' then 2  // Modifiable = Yellow (Critical)
+        when 'R' then 1  // Released with errors = Red (Negative)
+        else 0           // Others = Neutral
+      end as StatusCriticality,
+
+      // Request Type Description
+      @EndUserText.label: 'Request Type Description'
+      case trfunction
+        when 'K' then 'Workbench'
+        when 'W' then 'Customizing'
+        when 'S' then 'Transport of Copies'
+        when 'T' then 'Transport of Copies'
+        when 'E' then 'Customizing (Extended)'
+        when 'Q' then 'Customizing (Request)'
+        when 'R' then 'Workbench (Repair)'
+        else 'Other'
+      end as RequestTypeText,
+
+      // Status Description
+      @EndUserText.label: 'Status Description'
+      case trstatus
+        when 'D' then 'Released'
+        when 'L' then 'Modifiable'
+        when 'R' then 'Released with Errors'
+        when 'N' then 'Not Released'
+        when 'O' then 'Released (Import Finished)'
+        else 'Unknown'
+      end as StatusText,
+
+      /* Associations */
+      _Text,
+      _StatusVH,
+      _TypeVH,
+      _UserVH
+}
+where
+  strkorr = ''  // Only ORDERs (no TASKs)
+```
+
+</details>
+
+<details>
+<summary><b>📄 ZTR_C_TRANSPORT_REQUEST (Projection View)</b></summary>
+
+```abap
+@EndUserText.label: 'Transport Request - Projection View'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@Metadata.allowExtensions: true
+@Search.searchable: true
+
+define root view entity ZTR_C_TRANSPORT_REQUEST
+  provider contract transactional_query
+  as projection on ZTR_I_TRANSPORT_REQUEST
+{
+      @Search.defaultSearchElement: true
+      @Search.fuzzinessThreshold: 0.8
+  key TransportRequest,
+
+      @Consumption.valueHelpDefinition: [{
+        entity: { name: 'ZTR_I_TRANSPORT_TYPE_VH', element: 'RequestType' }
+      }]
+      RequestType,
+
+      @Consumption.valueHelpDefinition: [{
+        entity: { name: 'ZTR_I_TRANSPORT_STATUS_VH', element: 'Status' }
+      }]
+      RequestStatus,
+
+      @Search.defaultSearchElement: true
+      TargetSystem,
+
+      @Search.defaultSearchElement: true
+      @Consumption.valueHelpDefinition: [{
+        entity: { name: 'ZTR_I_USER_VH', element: 'UserID' }
+      }]
+      Owner,
+
+      CreationDate,
+      CreationTime,
+      ParentRequest,
+
+      @Search.defaultSearchElement: true
+      Description,
+
+      StatusCriticality,
+
+      @Search.defaultSearchElement: true
+      RequestTypeText,
+
+      @Search.defaultSearchElement: true
+      StatusText
+}
+```
+
+</details>
+
+<details>
+<summary><b>🎨 ZTR_C_TRANSPORT_REQUEST (Metadata Extension)</b></summary>
+
+```abap
+@Metadata.layer: #CORE
+@UI: {
+  headerInfo: {
+    typeName: 'Transport Request',
+    typeNamePlural: 'Transport Requests',
+    title: { type: #STANDARD, value: 'TransportRequest' },
+    description: { value: 'Description' }
+  }
+}
+
+annotate view ZTR_C_TRANSPORT_REQUEST with
+{
+  @UI: {
+    lineItem: [{ position: 10, importance: #HIGH }],
+    selectionField: [{ position: 10 }],
+    identification: [{ position: 10 }]
+  }
+  TransportRequest;
+
+  // Filter with dropdown (no lineItem - hidden in table)
+  @UI.selectionField: [{ position: 15 }]
+  RequestType;
+
+  // Table only (no selectionField - not a filter)
+  @UI: {
+    lineItem: [{ position: 20, importance: #HIGH, label: 'Request Type' }],
+    identification: [{ position: 20, label: 'Request Type' }]
+  }
+  RequestTypeText;
+
+  // Filter with dropdown (no lineItem - hidden in table)
+  @UI.selectionField: [{ position: 25 }]
+  RequestStatus;
+
+  // Table only with colors (no selectionField - not a filter)
+  @UI: {
+    lineItem: [{ position: 30, importance: #HIGH, label: 'Status', criticality: 'StatusCriticality' }],
+    identification: [{ position: 30, criticality: 'StatusCriticality' }]
+  }
+  StatusText;
+
+  @UI: {
+    lineItem: [{ position: 40, importance: #MEDIUM }],
+    selectionField: [{ position: 40 }],
+    identification: [{ position: 40 }]
+  }
+  TargetSystem;
+
+  @UI: {
+    lineItem: [{ position: 50, importance: #MEDIUM }],
+    selectionField: [{ position: 50 }],
+    identification: [{ position: 50 }]
+  }
+  Owner;
+
+  @UI: {
+    lineItem: [{ position: 60, importance: #LOW }],
+    identification: [{ position: 60 }]
+  }
+  CreationDate;
+
+  @UI: {
+    lineItem: [{ position: 70, importance: #LOW }],
+    identification: [{ position: 70 }]
+  }
+  CreationTime;
+
+  @UI: {
+    lineItem: [{ position: 80, importance: #LOW }],
+    identification: [{ position: 80 }]
+  }
+  ParentRequest;
+
+  @UI: {
+    lineItem: [{ position: 90, importance: #HIGH }],
+    selectionField: [{ position: 60 }],
+    identification: [{ position: 90 }]
+  }
+  Description;
+
+  @UI.hidden: true
+  StatusCriticality;
+}
+```
+
+</details>
+
+<details>
+<summary><b>📄 ZTR_I_TRANSPORT_STATUS_VH (Value Help - Status)</b></summary>
+
+```abap
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Transport Status - Value Help'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType: {
+  serviceQuality: #A,
+  sizeCategory: #S,
+  dataClass: #CUSTOMIZING
+}
+@ObjectModel.resultSet.sizeCategory: #XS  // Renders as dropdown!
+
+define view entity ZTR_I_TRANSPORT_STATUS_VH
+  as select from dd07t
+{
+      @ObjectModel.text.element: ['StatusText']
+  key domvalue_l as Status,
+
+      @Semantics.text: true
+      ddtext     as StatusText
+}
+where domname    = 'TRSTATUS'
+  and ddlanguage = $session.system_language
+```
+
+</details>
+
+<details>
+<summary><b>📄 ZTR_I_TRANSPORT_TYPE_VH (Value Help - Type)</b></summary>
+
+```abap
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Transport Type - Value Help'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType: {
+  serviceQuality: #A,
+  sizeCategory: #S,
+  dataClass: #CUSTOMIZING
+}
+@ObjectModel.resultSet.sizeCategory: #XS
+
+define view entity ZTR_I_TRANSPORT_TYPE_VH
+  as select from dd07t
+{
+      @ObjectModel.text.element: ['TypeText']
+      @UI.hidden: true
+  key domvalue_l as RequestType,
+
+      @Semantics.text: true
+      ddtext     as TypeText
+}
+where
+      domname    = 'TRFUNCTION'
+  and ddlanguage = $session.system_language
+```
+
+</details>
+
+<details>
+<summary><b>📄 ZTR_I_USER_VH (Value Help - User)</b></summary>
+
+```abap
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'User - Value Help'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType: {
+  serviceQuality: #A,
+  sizeCategory: #M,
+  dataClass: #MASTER
+}
+
+define view entity ZTR_I_USER_VH
+  as select distinct from e070
+{
+      @ObjectModel.text.element: ['UserName']
+  key as4user as UserID,
+
+      @Semantics.text: true
+      as4user as UserName
+}
+where
+  as4user <> ''
+```
+
+</details>
+
+<details>
+<summary><b>🌐 ZTR_UI_TRANSPORT_REQUEST_O4 (Service Definition)</b></summary>
+
+```abap
+@EndUserText.label: 'Transport Request Service Definition'
+define service ZTR_UI_TRANSPORT_REQUEST_O4 {
+  expose ZTR_C_TRANSPORT_REQUEST   as TransportRequest;
+  expose ZTR_I_TRANSPORT_STATUS_VH as TransportStatus;
+  expose ZTR_I_TRANSPORT_TYPE_VH   as TransportType;
+  expose ZTR_I_USER_VH             as Users;
+}
+```
+
+</details>
+
+<details>
+<summary><b>🔗 Service Bindings</b></summary>
+
+### ZTR_UI_TRANSPORT_REQUEST_2 (OData V2 - Recommended)
+
+**Configuration:**
+- **Binding Type:** OData V2 - UI
+- **Service Definition:** ZTR_UI_TRANSPORT_REQUEST_O4
+- **Service URL:** `/sap/opu/odata/sap/ZTR_UI_TRANSPORT_REQUEST_2`
+
+**Exposed Entities:**
+- TransportRequest
+- TransportStatus
+- TransportType
+- Users
+
+**Steps to Create:**
+1. Right-click Service Definition → New Service Binding
+2. Name: `ZTR_UI_TRANSPORT_REQUEST_2`
+3. Type: **OData V2 - UI**
+4. Activate → **Publish** (mandatory!)
+5. Click Preview → Select entity → Test
+
+> **Note:** OData V2 is recommended for better compatibility. Use V4 only if your system has it fully configured.
+
+</details>
 
 ---
 
@@ -554,11 +683,11 @@ Package: ZTRANSPORT_TOOLKIT
 
 ## 🚀 Installation
 
-### Quick Setup (5 minutes)
+### Quick Setup (10 minutes)
 
 1. **Import** objects to package `ZTRANSPORT_TOOLKIT` (via abapGit)
 2. **Activate** in sequence:
-   - Interface View → Projection View → Metadata Extension → Service Definition → Service Binding
+   - Value Help Views → Interface View → Projection View → Metadata Extension → Service Definition → Service Binding
 3. **Publish** Service Binding (mandatory step!)
 4. **Test** via Preview button
 
@@ -577,33 +706,39 @@ Description: Transport Request Management Tools
 
 #### 2. Create Objects (in order)
 
-**a) Interface View**
+**a) Value Help Views**
+- Create `ZTR_I_TRANSPORT_STATUS_VH`
+- Create `ZTR_I_TRANSPORT_TYPE_VH`
+- Create `ZTR_I_USER_VH`
+- Activate all three
+
+**b) Interface View**
 - Right-click package → New → Data Definition
 - Name: `ZTR_I_TRANSPORT_REQUEST`
-- Copy code from FASE 1 Step 1
+- Copy code from Source Code section
 - Save (Ctrl+S) → Activate (Ctrl+F3)
 
-**b) Projection View**
+**c) Projection View**
 - Right-click package → New → Data Definition
 - Name: `ZTR_C_TRANSPORT_REQUEST`
-- Copy code from FASE 1 Step 2
+- Copy code from Source Code section
 - Save → Activate
 
-**c) Metadata Extension**
+**d) Metadata Extension**
 - Right-click Projection View → New Metadata Extension
 - Name: `ZTR_C_TRANSPORT_REQUEST`
-- Copy code from FASE 1 Step 3
+- Copy code from Source Code section
 - Save → Activate
 
-**d) Service Definition**
+**e) Service Definition**
 - Right-click package → New → Service Definition
 - Name: `ZTR_UI_TRANSPORT_REQUEST_O4`
-- Copy code from FASE 1 Step 4
+- Copy code from Source Code section
 - Save → Activate
 
-**e) Service Binding**
+**f) Service Binding**
 - Right-click Service Definition → New Service Binding
-- Name: `ZTR_UI_TRANSPORT_REQUEST`
+- Name: `ZTR_UI_TRANSPORT_REQUEST_2`
 - Type: **OData V2 - UI**
 - Activate → **Click Publish button!**
 
@@ -642,12 +777,13 @@ Description: Transport Request Management Tools
 
 ---
 
-### Value Help views not found
-
-**Error:** `No data retrieved for I_TRANSPORTREQUESTSTATUS`
+### Dropdown not showing
 
 **Solution:**
-Remove `@Consumption.valueHelpDefinition` annotations (will be added in FASE 2.2 with custom helps)
+1. Verify Value Help views are activated
+2. Check `@ObjectModel.resultSet.sizeCategory: #XS` annotation
+3. Ensure Value Help is exposed in Service Definition
+4. Republish Service Binding
 
 ---
 
@@ -655,10 +791,10 @@ Remove `@Consumption.valueHelpDefinition` annotations (will be added in FASE 2.2
 
 | Metric | Value |
 |--------|-------|
-| **Development Time** | ~3 hours (FASE 1 + 2.1) |
-| **Lines of Code** | ~350 ABAP |
-| **Objects Created** | 5 |
-| **Calculated Fields** | 3 |
+| **Development Time** | ~4.5 hours (FASE 1 + 2.1 + 2.2) |
+| **Lines of Code** | ~500 ABAP |
+| **Objects Created** | 9 |
+| **Value Help Views** | 3 |
 | **Records Loaded** | 35,000+ |
 | **JavaScript** | 0 lines (pure declarative) |
 | **Architecture** | RAP + CDS + Fiori Elements |
@@ -772,8 +908,9 @@ If this toolkit helps you, please **star the repository**!
 |---------|------|---------|
 | **1.0.0** | 2025-01-26 | ✅ FASE 1 - Basic transport viewer |
 | **1.1.0** | 2025-01-29 | ✅ FASE 2.1 - Visual enhancements |
-| **1.2.0** | TBD | ▫️ FASE 2.2 - Value helps |
-| **1.3.0** | TBD | ▫️ FASE 3 - Transport objects (E071) |
+| **1.2.0** | 2025-02-05 | ✅ FASE 2.2 - Value helps & dropdown filters |
+| **1.3.0** | TBD | ▫️ FASE 2.3 - Object Page enhancements |
+| **1.4.0** | TBD | ▫️ FASE 3 - Transport objects (E071) |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
@@ -785,9 +922,9 @@ If this toolkit helps you, please **star the repository**!
 
 ---
 
-**Last Updated:** January 29, 2025  
-**Current Phase:** FASE 2.1 Complete ✅  
-**Next Milestone:** Value Helps & Object Page Enhancements
+**Last Updated:** February 05, 2025  
+**Current Phase:** FASE 2.2 Complete ✅  
+**Next Milestone:** Object Page Enhancements & Transport Objects
 
 ---
 
