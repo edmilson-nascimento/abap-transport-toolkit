@@ -175,14 +175,14 @@ Object Integration
 **Use Case:** Object Tracking Feature
 
 Track which transport requests modified specific objects:
-- Pre-transport validation (SCC1, /SDF/TRCHECK)
+- Pre-transport validation using custom conflict check tools
 - Change impact analysis
 - Audit trail for compliance
 
 **Example Query:**
 ```
-"What changed in program ZRFISCAL_001?"
-→ Shows: S4DK969504 (Modified Jan 28), S4DK970445 (Modified Jan 26)
+"What changed in program ZPROGRAM_001?"
+→ Shows: DEVK900001 (Modified Jan 28), DEVK900002 (Modified Jan 26)
 ```
 
 ---
@@ -203,7 +203,7 @@ Task Management
 
 ---
 
-### **FASE 5: ToC Creator (ZBCTRAC Replacement)** ▫️
+### **FASE 5: ToC Creator (ZTOC_CREATOR Replacement)** ▫️
 
 **Goal:** Automate Transport of Copies creation  
 **Duration:** ~12 hours
@@ -224,6 +224,8 @@ ToC Automation
 📊 Result: One-click ToC creation in Fiori
 ```
 
+> **Note:** `ZTOC_CREATOR` is a pseudo transaction name representing a custom Transport of Copies creation tool.
+
 ---
 
 ### **FASE 6: Advanced Actions** ▫️
@@ -238,10 +240,13 @@ Action Library
 ├── ▫️ View in SE09/SE10 (deep link)
 ├── ▫️ Export to Excel
 ├── ▫️ Compare requests
+├── ▫️ Check transport conflicts (ZCHECK_TRANSPORT_CONFLICTS)
 └── ▫️ Batch operations
 
 📊 Result: Complete transport management suite
 ```
+
+> **Note:** `ZCHECK_TRANSPORT_CONFLICTS` is a pseudo transaction name representing a custom tool for validating transport conflicts before import.
 
 ---
 
@@ -931,7 +936,7 @@ If this toolkit helps you, please **star the repository**!
 ## 🙏 Acknowledgments
 
 - SAP Community for RAP best practices
-- Original ZBCTRAC program by Christian Buchhorn
+- `ZTOC_CREATOR` pseudo transaction concept by Ada Lovelace
 - Anthropic Claude for development assistance
 - SAP for ABAP Cloud and RAP framework
 
