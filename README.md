@@ -10,22 +10,20 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 [![ABAP Cleaner](https://img.shields.io/github/stars/SAP/abap-cleaner?label=ABAP%20Cleaner&style=social)](https://github.com/SAP/abap-cleaner) [![abapGit](https://img.shields.io/github/stars/larshp/abapGit?label=abapGit&style=social)](https://github.com/larshp/abapGit)
 
 
-## 📑 Índice
+## 📑 Index
 
 - [Quick Start](#-quick-start)
 - [Overview](#-overview)
-- [Objectives](#-objectives)
-- [Roadmap](#️-development-roadmap)
+- [Roadmap](#️-roadmap)
+- [Version History](#️-version-history)
 - [Current Objects](#-current-objects)
 - [Source Code](#-complete-source-code)
 - [Tech Stack](#️-tech-stack)
 - [Requirements](#-requirements)
 - [Troubleshooting](#-troubleshooting)
-- [Project Stats](#-project-stats)
 - [Learning Resources](#-learning-resources)
 - [Author](#-author)
 - [License](#-license)
-- [Version History](#️-version-history)
 
 
 ## 🚀 Quick Start
@@ -39,6 +37,7 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 **Current Status:** FASE 2.2 Complete ✅  
 **Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps
 
+
 ## 📖 Overview
 
 A study project focused on RAP (RESTful ABAP Programming) and ABAP Cloud.
@@ -49,34 +48,21 @@ The chosen use case is transport request management - a real-world scenario that
 
 **Note:** This is a personal learning project. Manage your expectations accordingly.
 
-### Why RAP?
-
-| Feature | RAP | Traditional ABAP |
-|---------|-----|------------------|
-| **Cloud-Ready** | ✅ Native | ⚠️ Requires adaptation |
-| **Fiori Integration** | ✅ Automatic | ❌ Manual coding |
-| **Development Speed** | ✅ Fast (~2h for MVP) | ⚠️ Slow (~1 week) |
-| **OData Support** | ✅ Built-in V2/V4 | ❌ Gateway required |
-| **Maintenance** | ✅ Declarative | ⚠️ Custom code |
-
-**Recommendation:** Use RAP for all new projects and modernization efforts.
-
 ---
 
-## 🎯 Objectives
+## 🗺️ Roadmap
 
-- ✅ **Visualize** transport requests with modern Fiori UI
-- ✅ **Replace** legacy reports (ALV) with Fiori Elements
-- ✅ **Enable** filtering, searching, drill-down
-- ✅ **Add** colors and user-friendly descriptions
-- ✅ **Implement** dropdown filters with Value Helps
-- ▫️ **Automate** Transport of Copies (ToC) creation
-- ▫️ **Track** objects across transport requests (E071)
-- ▫️ **Implement** batch operations and advanced actions
+**Objectives:**
+- ✅ Visualize transport requests with modern Fiori UI
+- ✅ Replace legacy reports (ALV) with Fiori Elements
+- ✅ Enable filtering, searching, drill-down
+- ✅ Add colors and user-friendly descriptions
+- ✅ Implement dropdown filters with Value Helps
+- ▫️ Automate Transport of Copies (ToC) creation
+- ▫️ Track objects across transport requests (E071)
+- ▫️ Implement batch operations and advanced actions
 
 ---
-
-## 🗺️ Development Roadmap
 
 ### **FASE 1: Foundation (MVP)** ✅ COMPLETE
 
@@ -268,6 +254,19 @@ Action Library
 ```
 
 > **Note:** `ZCHECK_TRANSPORT_CONFLICTS` is a pseudo transaction name representing a custom tool for validating transport conflicts before import.
+
+---
+
+## 🗓️ Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| **1.0.0** | 2025-01-26 | ✅ FASE 1 - Basic transport viewer |
+| **1.1.0** | 2025-01-29 | ✅ FASE 2.1 - Visual enhancements |
+| **1.2.0** | 2025-02-05 | ✅ FASE 2.2 - Value helps & dropdown filters |
+| **1.3.0** | TBD | ▫️ FASE 2.3 - Object Page enhancements |
+| **1.4.0** | TBD | ▫️ FASE 3 - Transport objects (E071) |
+| **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
 
@@ -740,20 +739,6 @@ define service ZTR_UI_TRANSPORT_REQUEST_O4 {
 
 ---
 
-## 📊 Project Stats
-
-| Metric | Value |
-|--------|-------|
-| **Development Time** | ~4.5 hours (FASE 1 + 2.1 + 2.2) |
-| **Lines of Code** | ~500 ABAP |
-| **Objects Created** | 9 |
-| **Value Help Views** | 3 |
-| **Records Loaded** | 35,000+ |
-| **JavaScript** | 0 lines (pure declarative) |
-| **Architecture** | RAP + CDS + Fiori Elements |
-
----
-
 ## 🎓 Learning Resources
 
 ### RAP & CDS
@@ -817,19 +802,6 @@ SOFTWARE.
 ```
 
 </details>
-
----
-
-## 🗓️ Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| **1.0.0** | 2025-01-26 | ✅ FASE 1 - Basic transport viewer |
-| **1.1.0** | 2025-01-29 | ✅ FASE 2.1 - Visual enhancements |
-| **1.2.0** | 2025-02-05 | ✅ FASE 2.2 - Value helps & dropdown filters |
-| **1.3.0** | TBD | ▫️ FASE 2.3 - Object Page enhancements |
-| **1.4.0** | TBD | ▫️ FASE 3 - Transport objects (E071) |
-| **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
 
