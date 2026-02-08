@@ -9,7 +9,6 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 
 [![ABAP Cleaner](https://img.shields.io/github/stars/SAP/abap-cleaner?label=ABAP%20Cleaner&style=social)](https://github.com/SAP/abap-cleaner) [![abapGit](https://img.shields.io/github/stars/larshp/abapGit?label=abapGit&style=social)](https://github.com/larshp/abapGit)
 
----
 
 ## 📑 Índice
 
@@ -28,7 +27,6 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 - [License](#-license)
 - [Version History](#️-version-history)
 
----
 
 ## 🚀 Quick Start
 
@@ -41,7 +39,6 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 **Current Status:** FASE 2.2 Complete ✅  
 **Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps
 
----
 
 ## 📖 Overview
 
