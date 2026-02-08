@@ -39,10 +39,15 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 **Current Status:** FASE 2.2 Complete ✅  
 **Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps
 
-
 ## 📖 Overview
 
-Replace legacy ALV-based transport tools with modern **Fiori Elements** applications. This toolkit provides a practical, step-by-step guide to build cloud-ready transport management using RAP (RESTful ABAP Programming).
+A study project focused on RAP (RESTful ABAP Programming) and ABAP Cloud.
+
+The chosen use case is transport request management - a real-world scenario that exists in many companies, but is usually implemented with classic ABAP. The goal here is to rebuild these functionalities using modern patterns: CDS Views, Fiori Elements, and declarative architecture.
+
+**Target audience:** ABAP developers, Basis teams, and anyone interested in seeing RAP applied in practice.
+
+**Note:** This is a personal learning project. Manage your expectations accordingly.
 
 ### Why RAP?
 
