@@ -15,14 +15,14 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 - [Quick Start](#quick-start)
 - [Overview](#overview)
 - [Roadmap](#roadmap)
-  - [FASE 1: Foundation (MVP)](#fase-1-foundation-mvp-complete)
-  - [FASE 2.1: Visual Enhancements](#fase-21-visual-enhancements-complete)
-  - [FASE 2.2: Value Helps & Filters](#fase-22-value-helps-filters-complete)
-  - [FASE 2.3: Object Page Enhancements](#fase-23-object-page-enhancements-next)
-  - [FASE 3: Transport Objects (E071)](#fase-3-transport-objects-e071)
-  - [FASE 4: Transport Tasks](#fase-4-transport-tasks)
-  - [FASE 5: ToC Creator](#fase-5-toc-creator-ztoc_creator-replacement)
-  - [FASE 6: Advanced Actions](#fase-6-advanced-actions)
+  - [FASE 1: Foundation (MVP)](#fase-1-foundation-mvp--complete)
+  - [FASE 2.1: Visual Enhancements](#fase-21-visual-enhancements--complete)
+  - [FASE 2.2: Value Helps & Filters](#fase-22-value-helps--filters--complete)
+  - [FASE 2.3: Object Page Enhancements](#fase-23-object-page-enhancements--complete)
+  - [FASE 3: Transport Objects (E071)](#fase-3-transport-objects-e071-)
+  - [FASE 4: Transport Tasks](#fase-4-transport-tasks-)
+  - [FASE 5: ToC Creator](#fase-5-toc-creator-ztoc_creator-replacement-)
+  - [FASE 6: Advanced Actions](#fase-6-advanced-actions-)
 - [Version History](#version-history)
 - [Current Objects](#current-objects)
 - [Source Code](#complete-source-code)
@@ -42,8 +42,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 3. 🎉 App launches with 35,000+ transport requests!
 ```
 
-**Current Status:** FASE 2.2 Complete ✅  
-**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps
+**Current Status:** FASE 2.3 Complete ✅  
+**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page
 
 
 ## 📖 Overview
@@ -66,6 +66,7 @@ The chosen use case is transport request management - a real-world scenario that
 - ✅ Enable filtering, searching, drill-down
 - ✅ Add colors and user-friendly descriptions
 - ✅ Implement dropdown filters with Value Helps
+- ✅ Structured Object Page with header and facets
 - ▫️ Automate Transport of Copies (ToC) creation
 - ▫️ Track objects across transport requests (E071)
 - ▫️ Implement batch operations and advanced actions
@@ -154,25 +155,28 @@ Value Helps Implementation
 
 ---
 
-### **FASE 2.3: Object Page Enhancements** ▫️ NEXT
+### **FASE 2.3: Object Page Enhancements** ✅ COMPLETE
 
 **Goal:** Better detail view organization  
-**Duration:** ~1 hour
+**Duration:** ~1 hour | **Lines Added:** ~50 ABAP
+
 ```
 Object Page Improvements
-├── ▫️ Header Section
+├── ✅ Header Section
 │   ├── Transport Request (title)
 │   ├── Description (subtitle)
-│   └── Status (with color)
+│   ├── Status (with color/criticality)
+│   ├── Request Type
+│   └── Owner
 │
-├── ▫️ Facet: General Information
+├── ✅ Facet: General Information
 │   ├── Transport Request
 │   ├── Description
 │   ├── Status (with criticality)
 │   ├── Request Type
 │   └── Owner
 │
-└── ▫️ Facet: Technical Details
+└── ✅ Facet: Technical Details
     ├── Target System
     ├── Parent Request
     ├── Creation Date
@@ -181,7 +185,14 @@ Object Page Improvements
 📊 Result: Professional detail layout with grouped information
 ```
 
-**Implementation:** Metadata Extension with `@UI.facet` and `@UI.fieldGroup` annotations.
+**Implementation:** Metadata Extension with `@UI.facet`, `@UI.fieldGroup` and `@UI.dataPoint` annotations. 100% declarative — no changes to CDS Views, Service Definition or Service Binding.
+
+**📸 Screenshot:**
+
+![FASE 2.3 Result](./files/img/fase2-3-final.png)
+
+*Structured Object Page with header data points and organized facets*
+
 ---
 
 ### **FASE 3: Transport Objects (E071)** ▫️
@@ -284,7 +295,7 @@ Action Library
 | **1.0.0** | 2025-01-26 | ✅ FASE 1 - Basic transport viewer |
 | **1.1.0** | 2025-01-29 | ✅ FASE 2.1 - Visual enhancements |
 | **1.2.0** | 2025-02-05 | ✅ FASE 2.2 - Value helps & dropdown filters |
-| **1.3.0** | TBD | ▫️ FASE 2.3 - Object Page enhancements |
+| **1.3.0** | 2025-02-09 | ✅ FASE 2.3 - Object Page enhancements |
 | **1.4.0** | TBD | ▫️ FASE 3 - Transport objects (E071) |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
@@ -483,67 +494,120 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
 
 annotate view ZTR_C_TRANSPORT_REQUEST with
 {
+
+  // =============================================
+  // FACETS - Object Page structure
+  // =============================================
+  // Defined once on the first element of the view
   @UI: {
+    facet: [
+      // --- Header Data Points ---
+      {
+        id: 'HeaderStatus',
+        purpose: #HEADER,
+        type: #DATAPOINT_REFERENCE,
+        targetQualifier: 'StatusData',
+        position: 10
+      },
+      {
+        id: 'HeaderType',
+        purpose: #HEADER,
+        type: #DATAPOINT_REFERENCE,
+        targetQualifier: 'TypeData',
+        position: 20
+      },
+      {
+        id: 'HeaderOwner',
+        purpose: #HEADER,
+        type: #DATAPOINT_REFERENCE,
+        targetQualifier: 'OwnerData',
+        position: 30
+      },
+      // --- Body Facets ---
+      {
+        id: 'GeneralInfo',
+        type: #IDENTIFICATION_REFERENCE,
+        label: 'General Information',
+        position: 10
+      },
+      {
+        id: 'TechnicalDetails',
+        type: #FIELDGROUP_REFERENCE,
+        label: 'Technical Details',
+        targetQualifier: 'TechnicalDetails',
+        position: 20
+      }
+    ],
+    // --- List Report & Object Page ---
     lineItem: [{ position: 10, importance: #HIGH }],
     selectionField: [{ position: 10 }],
     identification: [{ position: 10 }]
   }
   TransportRequest;
 
-  // Filter with dropdown (no lineItem - hidden in table)
+  // Filter with dropdown (hidden in table)
   @UI.selectionField: [{ position: 15 }]
   RequestType;
 
-  // Table only (no selectionField - not a filter)
+  // Table + Header DataPoint
   @UI: {
     lineItem: [{ position: 20, importance: #HIGH, label: 'Request Type' }],
-    identification: [{ position: 20, label: 'Request Type' }]
+    identification: [{ position: 20, label: 'Request Type' }],
+    dataPoint: { qualifier: 'TypeData', title: 'Request Type' }
   }
   RequestTypeText;
 
-  // Filter with dropdown (no lineItem - hidden in table)
+  // Filter with dropdown (hidden in table)
   @UI.selectionField: [{ position: 25 }]
   RequestStatus;
 
-  // Table only with colors (no selectionField - not a filter)
+  // Table + Header DataPoint with criticality
   @UI: {
     lineItem: [{ position: 30, importance: #HIGH, label: 'Status', criticality: 'StatusCriticality' }],
-    identification: [{ position: 30, criticality: 'StatusCriticality' }]
+    identification: [{ position: 30, label: 'Status', criticality: 'StatusCriticality' }],
+    dataPoint: { qualifier: 'StatusData', title: 'Status', criticality: 'StatusCriticality' }
   }
   StatusText;
 
+  // Table + Filter + Technical Details facet
   @UI: {
     lineItem: [{ position: 40, importance: #MEDIUM }],
     selectionField: [{ position: 40 }],
-    identification: [{ position: 40 }]
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 10, label: 'Target System' }]
   }
   TargetSystem;
 
+  // Table + Filter + General Info + Header DataPoint
   @UI: {
     lineItem: [{ position: 50, importance: #MEDIUM }],
     selectionField: [{ position: 50 }],
-    identification: [{ position: 50 }]
+    identification: [{ position: 50 }],
+    dataPoint: { qualifier: 'OwnerData', title: 'Owner' }
   }
   Owner;
 
+  // Table + Technical Details facet
   @UI: {
     lineItem: [{ position: 60, importance: #LOW }],
-    identification: [{ position: 60 }]
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 30, label: 'Creation Date' }]
   }
   CreationDate;
 
+  // Table + Technical Details facet
   @UI: {
     lineItem: [{ position: 70, importance: #LOW }],
-    identification: [{ position: 70 }]
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 40, label: 'Creation Time' }]
   }
   CreationTime;
 
+  // Table + Technical Details facet
   @UI: {
     lineItem: [{ position: 80, importance: #LOW }],
-    identification: [{ position: 80 }]
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 20, label: 'Parent Request' }]
   }
   ParentRequest;
 
+  // Table + Filter + General Info
   @UI: {
     lineItem: [{ position: 90, importance: #HIGH }],
     selectionField: [{ position: 60 }],
@@ -553,6 +617,7 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
 
   @UI.hidden: true
   StatusCriticality;
+
 }
 ```
 
@@ -826,8 +891,8 @@ SOFTWARE.
 ---
 
 **Last Updated:** February 2025  
-**Current Phase:** FASE 2.2 Complete ✅  
-**Next Milestone:** Object Page Enhancements & Transport Objects
+**Current Phase:** FASE 2.3 Complete ✅  
+**Next Milestone:** Transport Objects (E071) & Transport Tasks
 
 ---
 
