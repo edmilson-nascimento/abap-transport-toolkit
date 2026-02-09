@@ -498,7 +498,6 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   // =============================================
   // FACETS - Object Page structure
   // =============================================
-  // Defined once on the first element of the view
   @UI: {
     facet: [
       // --- Header Data Points ---
@@ -538,7 +537,7 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
         position: 20
       }
     ],
-    // --- List Report & Object Page ---
+    // --- List Report & General Information ---
     lineItem: [{ position: 10, importance: #HIGH }],
     selectionField: [{ position: 10 }],
     identification: [{ position: 10 }]
@@ -549,10 +548,10 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   @UI.selectionField: [{ position: 15 }]
   RequestType;
 
-  // Table + Header DataPoint
+  // Table + General Info (pos 40) + Header DataPoint
   @UI: {
     lineItem: [{ position: 20, importance: #HIGH, label: 'Request Type' }],
-    identification: [{ position: 20, label: 'Request Type' }],
+    identification: [{ position: 40, label: 'Request Type' }],
     dataPoint: { qualifier: 'TypeData', title: 'Request Type' }
   }
   RequestTypeText;
@@ -561,7 +560,7 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   @UI.selectionField: [{ position: 25 }]
   RequestStatus;
 
-  // Table + Header DataPoint with criticality
+  // Table + General Info (pos 30) + Header DataPoint with criticality
   @UI: {
     lineItem: [{ position: 30, importance: #HIGH, label: 'Status', criticality: 'StatusCriticality' }],
     identification: [{ position: 30, label: 'Status', criticality: 'StatusCriticality' }],
@@ -569,7 +568,7 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   }
   StatusText;
 
-  // Table + Filter + Technical Details facet
+  // Table + Filter + Technical Details (pos 10)
   @UI: {
     lineItem: [{ position: 40, importance: #MEDIUM }],
     selectionField: [{ position: 40 }],
@@ -577,7 +576,7 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   }
   TargetSystem;
 
-  // Table + Filter + General Info + Header DataPoint
+  // Table + Filter + General Info (pos 50) + Header DataPoint
   @UI: {
     lineItem: [{ position: 50, importance: #MEDIUM }],
     selectionField: [{ position: 50 }],
@@ -586,32 +585,32 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   }
   Owner;
 
-  // Table + Technical Details facet
+  // Table + Technical Details (pos 30)
   @UI: {
     lineItem: [{ position: 60, importance: #LOW }],
     fieldGroup: [{ qualifier: 'TechnicalDetails', position: 30, label: 'Creation Date' }]
   }
   CreationDate;
 
-  // Table + Technical Details facet
+  // Table + Technical Details (pos 40)
   @UI: {
     lineItem: [{ position: 70, importance: #LOW }],
     fieldGroup: [{ qualifier: 'TechnicalDetails', position: 40, label: 'Creation Time' }]
   }
   CreationTime;
 
-  // Table + Technical Details facet
+  // Table + Technical Details (pos 20)
   @UI: {
     lineItem: [{ position: 80, importance: #LOW }],
     fieldGroup: [{ qualifier: 'TechnicalDetails', position: 20, label: 'Parent Request' }]
   }
   ParentRequest;
 
-  // Table + Filter + General Info
+  // Table + Filter + General Info (pos 20)
   @UI: {
     lineItem: [{ position: 90, importance: #HIGH }],
     selectionField: [{ position: 60 }],
-    identification: [{ position: 90 }]
+    identification: [{ position: 20 }]
   }
   Description;
 
