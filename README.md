@@ -158,18 +158,30 @@ Value Helps Implementation
 
 **Goal:** Better detail view organization  
 **Duration:** ~1 hour
-
 ```
 Object Page Improvements
-├── ▫️ Facets (tabbed sections)
-│   ├── General Information
-│   ├── Technical Data
-│   └── Change History
-└── ▫️ Field Groups (logical grouping)
+├── ▫️ Header Section
+│   ├── Transport Request (title)
+│   ├── Description (subtitle)
+│   └── Status (with color)
+│
+├── ▫️ Facet: General Information
+│   ├── Transport Request
+│   ├── Description
+│   ├── Status (with criticality)
+│   ├── Request Type
+│   └── Owner
+│
+└── ▫️ Facet: Technical Details
+    ├── Target System
+    ├── Parent Request
+    ├── Creation Date
+    └── Creation Time
 
-📊 Result: Professional detail layout
+📊 Result: Professional detail layout with grouped information
 ```
 
+**Implementation:** Metadata Extension with `@UI.facet` and `@UI.fieldGroup` annotations.
 ---
 
 ### **FASE 3: Transport Objects (E071)** ▫️
