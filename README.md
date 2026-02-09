@@ -19,6 +19,7 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
   - [FASE 2.1: Visual Enhancements](#fase-21-visual-enhancements--complete)
   - [FASE 2.2: Value Helps & Filters](#fase-22-value-helps--filters--complete)
   - [FASE 2.3: Object Page Enhancements](#fase-23-object-page-enhancements--complete)
+  - [FASE 2.4: Owner Name Resolution](#fase-24-owner-name-resolution--complete)
   - [FASE 3: Transport Objects (E071)](#fase-3-transport-objects-e071-)
   - [FASE 4: Transport Tasks](#fase-4-transport-tasks-)
   - [FASE 5: ToC Creator](#fase-5-toc-creator-ztoc_creator-replacement-)
@@ -42,8 +43,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 3. 🎉 App launches with 35,000+ transport requests!
 ```
 
-**Current Status:** FASE 2.3 Complete ✅  
-**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page
+**Current Status:** FASE 2.4 Complete ✅  
+**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution
 
 
 ## 📖 Overview
@@ -67,6 +68,7 @@ The chosen use case is transport request management - a real-world scenario that
 - ✅ Add colors and user-friendly descriptions
 - ✅ Implement dropdown filters with Value Helps
 - ✅ Structured Object Page with header and facets
+- ✅ Resolve Owner User ID to full name
 - ▫️ Automate Transport of Copies (ToC) creation
 - ▫️ Track objects across transport requests (E071)
 - ▫️ Implement batch operations and advanced actions
@@ -195,6 +197,41 @@ Object Page Improvements
 
 ---
 
+### **FASE 2.4: Owner Name Resolution** ✅ COMPLETE
+
+**Goal:** Display owner full name instead of just User ID  
+**Duration:** ~1.5 hours | **Lines Added:** ~30 ABAP
+
+```
+Owner Name Resolution
+├── ✅ New CDS View Entity (ZTR_I_USER_NAME)
+│   ├── Join USR21 + ADRP tables
+│   └── Exposes FullName, FirstName, LastName
+│
+├── ✅ Interface View updated
+│   ├── Association to ZTR_I_USER_NAME
+│   └── OwnerName with format: USERID (Full Name)
+│
+├── ✅ Projection View updated
+│   └── New field OwnerName exposed
+│
+└── ✅ Metadata Extension updated
+    ├── Owner ID → List Report filter + table column
+    └── OwnerName → Object Page header + General Info
+
+📊 Result: Owner shows "JESUSEDM (Edmilson Nascimento Jesus)"
+```
+
+**Implementation:** New `ZTR_I_USER_NAME` CDS view entity replicating `V_USERNAME` logic using `USR21` + `ADRP` tables. Owner ID is kept for filtering while `OwnerName` provides human-readable display with fallback to User ID when name is unavailable.
+
+**📸 Screenshot:**
+
+![FASE 2.4 Result](./files/img/fase2-4-final.png)
+
+*Owner name resolved from User ID to full name*
+
+---
+
 ### **FASE 3: Transport Objects (E071)** ▫️
 
 **Goal:** Display objects in each transport request  
@@ -296,7 +333,8 @@ Action Library
 | **1.1.0** | 2025-01-29 | ✅ FASE 2.1 - Visual enhancements |
 | **1.2.0** | 2025-02-05 | ✅ FASE 2.2 - Value helps & dropdown filters |
 | **1.3.0** | 2025-02-09 | ✅ FASE 2.3 - Object Page enhancements |
-| **1.4.0** | TBD | ▫️ FASE 3 - Transport objects (E071) |
+| **1.4.0** | 2025-02-09 | ✅ FASE 2.4 - Owner name resolution |
+| **1.5.0** | TBD | ▫️ FASE 3 - Transport objects (E071) |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
@@ -306,9 +344,10 @@ Action Library
 ```
 Package: ZTRANSPORT_TOOLKIT
 │
-├── 📄 CDS Views (5)
+├── 📄 CDS Views (6)
 │   ├── ZTR_I_TRANSPORT_REQUEST      (Interface View)
 │   ├── ZTR_C_TRANSPORT_REQUEST      (Projection View)
+│   ├── ZTR_I_USER_NAME              (User Name Resolution)
 │   ├── ZTR_I_TRANSPORT_STATUS_VH    (Value Help - Status)
 │   ├── ZTR_I_TRANSPORT_TYPE_VH      (Value Help - Type)
 │   └── ZTR_I_USER_VH                (Value Help - User)
@@ -340,40 +379,50 @@ Package: ZTRANSPORT_TOOLKIT
 define root view entity ZTR_I_TRANSPORT_REQUEST
   as select from e070
 
-  association [0..1] to e07t as _Text on  $projection.TransportRequest = _Text.trkorr
-                                      and _Text.langu                   = $session.system_language
-// Value Help Associations
-  association [0..1] to ZTR_I_TRANSPORT_STATUS_VH as _StatusVH
-    on $projection.RequestStatus = _StatusVH.Status
-  association [0..1] to ZTR_I_TRANSPORT_TYPE_VH   as _TypeVH
-    on $projection.RequestType = _TypeVH.RequestType
-  association [0..1] to ZTR_I_USER_VH             as _UserVH
-    on $projection.Owner = _UserVH.UserID
+  association [0..1] to e07t                      as _Text     on  $projection.TransportRequest = _Text.trkorr
+                                                               and _Text.langu                  = $session.system_language
+
+  // Value Help Associations
+  association [0..1] to ZTR_I_TRANSPORT_STATUS_VH as _StatusVH on  $projection.RequestStatus = _StatusVH.Status
+  association [0..1] to ZTR_I_TRANSPORT_TYPE_VH   as _TypeVH   on  $projection.RequestType = _TypeVH.RequestType
+  association [0..1] to ZTR_I_USER_VH             as _UserVH   on  $projection.Owner = _UserVH.UserID
+
+  // User Name Resolution
+  association [0..1] to ZTR_I_USER_NAME           as _UserName on  $projection.Owner = _UserName.UserID
 
 {
       @EndUserText.label: 'Transport Request'
-  key trkorr       as TransportRequest,
+  key trkorr        as TransportRequest,
 
       @EndUserText.label: 'Request Type'
-      trfunction   as RequestType,
+      trfunction    as RequestType,
 
       @EndUserText.label: 'Request Status'
-      trstatus     as RequestStatus,
+      trstatus      as RequestStatus,
 
       @EndUserText.label: 'Target System'
-      tarsystem    as TargetSystem,
+      tarsystem     as TargetSystem,
 
       @EndUserText.label: 'Owner'
-      as4user      as Owner,
+      as4user       as Owner,
+
+      @EndUserText.label: 'Owner Name'
+      case when _UserName.FullName is not initial
+        then concat_with_space(
+               as4user,
+               concat( '(', concat( _UserName.FullName, ')' ) ),
+               1 )
+        else as4user
+      end as OwnerName,
 
       @EndUserText.label: 'Creation Date'
-      as4date      as CreationDate,
+      as4date       as CreationDate,
 
       @EndUserText.label: 'Creation Time'
-      as4time      as CreationTime,
+      as4time       as CreationTime,
 
       @EndUserText.label: 'Parent Request'
-      strkorr      as ParentRequest,
+      strkorr       as ParentRequest,
 
       @EndUserText.label: 'Description'
       _Text.as4text as Description,
@@ -385,7 +434,7 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
         when 'L' then 2  // Modifiable = Yellow (Critical)
         when 'R' then 1  // Released with errors = Red (Negative)
         else 0           // Others = Neutral
-      end as StatusCriticality,
+      end           as StatusCriticality,
 
       // Request Type Description
       @EndUserText.label: 'Request Type Description'
@@ -398,7 +447,7 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
         when 'Q' then 'Customizing (Request)'
         when 'R' then 'Workbench (Repair)'
         else 'Other'
-      end as RequestTypeText,
+      end           as RequestTypeText,
 
       // Status Description
       @EndUserText.label: 'Status Description'
@@ -409,16 +458,17 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
         when 'N' then 'Not Released'
         when 'O' then 'Released (Import Finished)'
         else 'Unknown'
-      end as StatusText,
+      end           as StatusText,
 
       /* Associations */
       _Text,
       _StatusVH,
       _TypeVH,
-      _UserVH
+      _UserVH,
+      _UserName
 }
 where
-  strkorr = ''  // Only ORDERs (no TASKs)
+  strkorr = '' // Only ORDERs (no TASKs)
 ```
 
 </details>
@@ -440,11 +490,13 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
       @Search.fuzzinessThreshold: 0.8
   key TransportRequest,
 
+      @Search.defaultSearchElement: true
       @Consumption.valueHelpDefinition: [{
         entity: { name: 'ZTR_I_TRANSPORT_TYPE_VH', element: 'RequestType' }
       }]
       RequestType,
 
+      @Search.defaultSearchElement: true
       @Consumption.valueHelpDefinition: [{
         entity: { name: 'ZTR_I_TRANSPORT_STATUS_VH', element: 'Status' }
       }]
@@ -458,6 +510,9 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
         entity: { name: 'ZTR_I_USER_VH', element: 'UserID' }
       }]
       Owner,
+
+      @Search.defaultSearchElement: true
+      OwnerName,
 
       CreationDate,
       CreationTime,
@@ -495,12 +550,10 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
 annotate view ZTR_C_TRANSPORT_REQUEST with
 {
 
-  // =============================================
   // FACETS - Object Page structure
-  // =============================================
   @UI: {
     facet: [
-      // --- Header Data Points ---
+      // Header Data Points
       {
         id: 'HeaderStatus',
         purpose: #HEADER,
@@ -522,7 +575,7 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
         targetQualifier: 'OwnerData',
         position: 30
       },
-      // --- Body Facets ---
+      // Body Facets
       {
         id: 'GeneralInfo',
         type: #IDENTIFICATION_REFERENCE,
@@ -537,7 +590,7 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
         position: 20
       }
     ],
-    // --- List Report & General Information ---
+    // List Report & General Information
     lineItem: [{ position: 10, importance: #HIGH }],
     selectionField: [{ position: 10 }],
     identification: [{ position: 10 }]
@@ -576,14 +629,19 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   }
   TargetSystem;
 
-  // Table + Filter + General Info (pos 50) + Header DataPoint
+  // Table + Filter (Owner ID for filtering)
   @UI: {
     lineItem: [{ position: 50, importance: #MEDIUM }],
-    selectionField: [{ position: 50 }],
-    identification: [{ position: 50 }],
-    dataPoint: { qualifier: 'OwnerData', title: 'Owner' }
+    selectionField: [{ position: 50 }]
   }
   Owner;
+
+  // General Info (pos 50) + Header DataPoint (Owner full name)
+  @UI: {
+    identification: [{ position: 50, label: 'Owner' }],
+    dataPoint: { qualifier: 'OwnerData', title: 'Owner' }
+  }
+  OwnerName;
 
   // Table + Technical Details (pos 30)
   @UI: {
@@ -617,6 +675,38 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   @UI.hidden: true
   StatusCriticality;
 
+}
+```
+
+</details>
+
+<details>
+<summary><b>📄 ZTR_I_USER_NAME (User Name Resolution)</b></summary>
+
+```abap
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'User Name - View Entity'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType: {
+  serviceQuality: #A,
+  sizeCategory: #L,
+  dataClass: #MASTER
+}
+
+define view entity ZTR_I_USER_NAME
+  as select from usr21
+    inner join adrp on  usr21.persnumber = adrp.persnumber
+                    and adrp.date_from   = '00010101'
+{
+      @ObjectModel.text.element: ['FullName']
+  key usr21.bname        as UserID,
+
+      @Semantics.text: true
+      adrp.name_text     as FullName,
+
+      adrp.name_first    as FirstName,
+      adrp.name_last     as LastName
 }
 ```
 
@@ -823,6 +913,16 @@ define service ZTR_UI_TRANSPORT_REQUEST_O4 {
 
 ---
 
+### Owner name showing only User ID
+
+**Solution:**
+1. Verify `ZTR_I_USER_NAME` is activated
+2. Check `USR21` and `ADRP` tables have data for the user
+3. Confirm `adrp.date_from = '00010101'` returns a record
+4. If `name_text` is empty in ADRP, the fallback shows the User ID
+
+---
+
 ## 🎓 Learning Resources
 
 ### RAP & CDS
@@ -890,7 +990,7 @@ SOFTWARE.
 ---
 
 **Last Updated:** February 2025  
-**Current Phase:** FASE 2.3 Complete ✅  
+**Current Phase:** FASE 2.4 Complete ✅  
 **Next Milestone:** Transport Objects (E071) & Transport Tasks
 
 ---
