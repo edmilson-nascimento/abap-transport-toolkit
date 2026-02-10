@@ -260,6 +260,112 @@ Track which transport requests modified specific objects:
 → Shows: DEVK900001 (Modified Jan 28), DEVK900002 (Modified Jan 26)
 ```
 
+
+Tens toda a razão! Peço desculpa. Eu tinha colocado tudo num bloco só, mas para manter a consistência com a **Fase 2** (que foi quebrada em 2.1, 2.2, etc.), devemos fazer exatamente o mesmo com a **Fase 3**.
+
+Isso facilita o acompanhamento do progresso ("checkar" cada caixinha) e deixa o Roadmap muito mais organizado.
+
+Aqui está a versão corrigida e quebrada em sub-fases para você substituir no seu `README.md`:
+
+---
+
+### **FASE 3.1: Data Modeling (E071)** ▫️
+
+**Goal:** Create CDS view to read transport objects (`E071`) merging Request and Task data
+**Duration:** ~2 hours
+
+```
+Data Model Expansion
+├── ▫️ New Interface View (ZTR_I_TRANSPORT_OBJECT)
+│   ├── Source: E071 (Transport Objects)
+│   ├── Logic: Join E070 to identify Parent Request
+│   └── Fields: PGMID, Object Type, Object Name, Task Owner
+└── ▫️ Text Normalization
+    └── Case statement for readable types (e.g., 'PROG' -> 'Program')
+
+📊 Result: Backend ready to read objects from DB
+
+```
+
+---
+
+### **FASE 3.2: RAP Integration (Composition)** ▫️
+
+**Goal:** Establish Parent-Child relationship between Request and Objects
+**Duration:** ~1 hour
+
+```
+Hierarchy Definition
+├── ▫️ Root View (ZTR_I_TRANSPORT_REQUEST)
+│   └── Add: Composition [0..*] of ZTR_I_TRANSPORT_OBJECT
+│
+├── ▫️ Child View (ZTR_I_TRANSPORT_OBJECT)
+│   └── Add: Association to parent ZTR_I_TRANSPORT_REQUEST
+│
+└── ▫️ Service Definition
+    └── Expose ZTR_I_TRANSPORT_OBJECT (for internal navigation)
+
+📊 Result: OData service supports deep hierarchy
+
+```
+
+---
+
+### **FASE 3.3: UI Integration (Object Page)** ▫️
+
+**Goal:** Display the object list in a new Tab
+**Duration:** ~1.5 hours
+
+```
+UI Implementation
+├── ▫️ Projection View (ZTR_C_TRANSPORT_OBJECT)
+│   └── Define UI fields (LineItem)
+│
+└── ▫️ Metadata Extension (ZTR_C_TRANSPORT_REQUEST)
+    └── Add Facet: #LINEITEM_REFERENCE (Target: _Objects)
+
+📊 Result: New "Objects" tab appears in the Object Page
+
+```
+
+---
+
+### **FASE 3.4: Visual Grouping (UX)** ▫️
+
+**Goal:** Organize objects visually by Task or Owner using Fiori Elements
+**Duration:** ~1 hour
+
+```
+Visual Refinement
+├── ▫️ Annotation: @UI.presentationVariant
+│   └── groupBy: ['TaskOwner', 'TransportTask']
+│
+└── ▫️ Visual Result
+    ├── Group 1: Task DEVK900001 (Owner: EDMILSON) - 5 Objects
+    └── Group 2: Task DEVK900002 (Owner: JOHN) - 3 Objects
+
+📊 Result: Organized, hierarchical view without custom JS
+
+```
+
+---
+
+### **FASE 3.5: Inverse Search** ▫️
+
+**Goal:** Find a Transport Request by searching for an object name
+**Duration:** ~0.5 hours
+
+```
+Search Configuration
+├── ▫️ Child Entity
+│   └── Annotate ObjectName with @Search.defaultSearchElement
+│
+└── ▫️ List Report Behavior
+    └── Searching "ZPROGRAM_001" returns the parent Request
+
+📊 Result: "Where is this object?" question answered instantly
+
+```
 ---
 
 ### **FASE 4: Transport Tasks** ▫️
