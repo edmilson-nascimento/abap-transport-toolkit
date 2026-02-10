@@ -444,7 +444,12 @@ Action Library
 | **1.2.0** | 2025-02-05 | ✅ FASE 2.2 - Value helps & dropdown filters |
 | **1.3.0** | 2025-02-09 | ✅ FASE 2.3 - Object Page enhancements |
 | **1.4.0** | 2025-02-09 | ✅ FASE 2.4 - Owner name resolution |
-| **1.5.0** | TBD | ▫️ FASE 3 - Transport objects (E071) |
+| **1.5.1** | TBD | ▫️ FASE 3.1 - Data Modeling (E071 view) |
+| **1.5.2** | TBD | ▫️ FASE 3.2 - RAP Integration (Parent-Child) |
+| **1.5.3** | TBD | ▫️ FASE 3.3 - UI Integration (Objects Tab) |
+| **1.5.4** | TBD | ▫️ FASE 3.4 - Visual Grouping (UX) |
+| **1.5.5** | TBD | ▫️ FASE 3.5 - Inverse Search configuration |
+| **1.5.6** | TBD | ▫️ FASE 3.x - Refinements & Bugfixes |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
