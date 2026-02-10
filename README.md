@@ -236,43 +236,6 @@ Owner Name Resolution
 
 ---
 
-### **FASE 3: Transport Objects (E071)** ▫️
-
-**Goal:** Display objects in each transport request  
-**Duration:** ~6 hours
-
-```
-Object Integration
-├── ▫️ Interface View (ZTR_I_TRANSPORT_OBJECT)
-├── ▫️ Projection View (ZTR_C_TRANSPORT_OBJECT)
-├── ▫️ Association (_Objects: 1..N)
-└── ▫️ Object Page Tab (objects list)
-
-📊 Result: See what's in each transport
-```
-
-**Use Case:** Object Tracking Feature
-
-Track which transport requests modified specific objects:
-- Pre-transport validation using custom conflict check tools
-- Change impact analysis
-- Audit trail for compliance
-
-**Example Query:**
-```
-"What changed in program ZPROGRAM_001?"
-→ Shows: DEVK900001 (Modified Jan 28), DEVK900002 (Modified Jan 26)
-```
-
-
-Tens toda a razão! Peço desculpa. Eu tinha colocado tudo num bloco só, mas para manter a consistência com a **Fase 2** (que foi quebrada em 2.1, 2.2, etc.), devemos fazer exatamente o mesmo com a **Fase 3**.
-
-Isso facilita o acompanhamento do progresso ("checkar" cada caixinha) e deixa o Roadmap muito mais organizado.
-
-Aqui está a versão corrigida e quebrada em sub-fases para você substituir no seu `README.md`:
-
----
-
 ### **FASE 3.1: Data Modeling (E071)** ▫️
 
 **Goal:** Create CDS view to read transport objects (`E071`) merging Request and Task data
