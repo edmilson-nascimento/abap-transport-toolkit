@@ -24,8 +24,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
   - [FASE 3.2: RAP Integration](#fase-32-rap-integration-composition--complete)
   - [FASE 3.3: UI Integration](#fase-33-ui-integration-object-page--complete)
   - [FASE 3.4: Visual Grouping](#fase-34-visual-grouping-ux--complete)
-  - [FASE 3.5: Inverse Search](#fase-35-inverse-search-)
-  - [FASE 4: Transport Tasks](#fase-4-transport-tasks-)
+  - [FASE 3.5: Inverse Search](#fase-35-inverse-search--complete)
+  - [FASE 4: Transport Tasks](#fase-4-transport-tasks--complete)
   - [FASE 5: ToC Creator](#fase-5-toc-creator-ztoc_creator-replacement-)
   - [FASE 6: Advanced Actions](#fase-6-advanced-actions-)
 - [Version History](#version-history)
@@ -47,8 +47,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 3. 🎉 App launches with 35,000+ transport requests!
 ```
 
-**Current Status:** FASE 3.4 Complete ✅  
-**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition • Objects tab in the Object Page • Objects grouped by Task/Owner
+**Current Status:** FASE 3.5 Complete ✅ (FASE 3 fully done)  
+**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition • Objects tab in the Object Page • Transport Tasks hierarchy (Request → Tasks → Objects) • Inverse search (find a Request by object name) • Objects grouped by Task/Owner
 
 
 ## 📖 Overview
@@ -336,6 +336,8 @@ define view entity ZTR_I_TRANSPORT_OBJECT
 
 **Performance note (2026-09-19):** the `_Request` composition originally joined on the *computed* `TransportRequest` field (the `CASE`/`_Task` roll-up above). E071 has 41M+ rows system-wide, and filtering on a calculated column prevents the database from using the index on `TRKORR` — measured at **~2.6s** per Object Page navigation (full scan), versus **~9ms** filtering `TRKORR` directly (a **~280x** difference). Fixed by joining `_Request` on the raw `EntryRequest` (`TRKORR`) instead. Trade-off: the "Objects" tab now shows only objects entered *directly* on the Request — objects recorded under one of its Tasks won't appear until FASE 4 (Transport Tasks) models that hop as its own indexed join, rather than resolving it through this same computed field.
 
+**Known limitation (resolved in FASE 4):** in practice, most real requests keep their objects on Tasks, not directly on the Request (e.g. `S4DK974007` had 0 direct objects, 36 across its 2 Tasks) — so the "Objects" tab often rendered empty. Accepted deliberately at the time: correctness/performance now, coverage later. **FASE 4 (Transport Tasks) was prioritized ahead of FASE 3.5 (Inverse Search) specifically to close this gap** — see that section for how Request → Tasks → Objects is now modeled as its own indexed hop instead of a computed field.
+
 </details>
 
 ---
@@ -414,6 +416,7 @@ UI Implementation
 @EndUserText.label: 'Transport Object - Projection View'
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @Metadata.allowExtensions: true
+@Search.searchable: true
 
 define view entity ZTR_C_TRANSPORT_OBJECT
   as projection on ZTR_I_TRANSPORT_OBJECT
@@ -424,7 +427,10 @@ define view entity ZTR_C_TRANSPORT_OBJECT
       ProgramId,
       ObjectType,
       ObjectTypeText,
+
+      @Search.defaultSearchElement: true
       ObjectName,
+
       ObjectFunction,
       LockFlag,
       TaskOwner,
@@ -436,7 +442,7 @@ define view entity ZTR_C_TRANSPORT_OBJECT
 
 **Bugfix (2026-09-19):** the original version had no `_Request` association at all. A composition child projection must expose its to-parent association with `redirected to parent <root projection>` *before* the root's `redirected to composition child` can resolve — without it, the "Objects" facet on the Object Page silently renders nothing (no error in ADT, no OData error — the facet just never appears). See the matching fix on `ZTR_C_TRANSPORT_REQUEST` above.
 
-**Note:** this projection has no `provider contract transactional_query` — it is a composition child, addressed only via `_Objects` navigation from `ZTR_C_TRANSPORT_REQUEST`, never queried standalone. Activation succeeds with an informational warning about the missing contract, which is expected for this pattern.
+**Note:** this projection has no `provider contract transactional_query`, since it's primarily a composition child addressed via `_Objects` navigation from `ZTR_C_TRANSPORT_REQUEST`. It's still exposed as its own top-level entity set (`TransportObject`) in the Service Definition, though, and — as of FASE 3.5 — is directly searchable/browsable standalone (see below); the missing contract only produces an informational warning on activation, not an error.
 
 </details>
 
@@ -518,6 +524,9 @@ annotate view ZTR_C_TRANSPORT_OBJECT with
   }
   EntryRequest;
 
+  @UI.lineItem: [{ position: 6, importance: #HIGH, label: 'Parent Request' }]
+  TransportRequest;
+
   @UI.lineItem: [{ position: 10, importance: #HIGH, label: 'Type' }]
   ObjectTypeText;
 
@@ -533,8 +542,6 @@ annotate view ZTR_C_TRANSPORT_OBJECT with
   @UI.hidden: true
   EntryPosition;
   @UI.hidden: true
-  TransportRequest;
-  @UI.hidden: true
   ProgramId;
   @UI.hidden: true
   ObjectType;
@@ -543,43 +550,276 @@ annotate view ZTR_C_TRANSPORT_OBJECT with
 }
 ```
 
+**Updated in FASE 3.5:** `TransportRequest` is no longer `@UI.hidden` — it's now a visible column, so a search result row shows which Request the object belongs to. See the [FASE 3.5](#fase-35-inverse-search--complete) section for the accompanying `@Search` annotations.
+
 </details>
 
 ---
 
----
-
-### **FASE 3.5: Inverse Search** ▫️
+### **FASE 3.5: Inverse Search** ✅ COMPLETE
 
 **Goal:** Find a Transport Request by searching for an object name
-**Duration:** ~0.5 hours
+**Duration:** ~20 minutes
 
 ```
 Search Configuration
-├── ▫️ Child Entity
-│   └── Annotate ObjectName with @Search.defaultSearchElement
+├── ✅ ZTR_C_TRANSPORT_OBJECT
+│   ├── @Search.searchable: true (entity level)
+│   └── @Search.defaultSearchElement: true on ObjectName
 │
-└── ▫️ List Report Behavior
-    └── Searching "ZPROGRAM_001" returns the parent Request
+└── ✅ TransportRequest un-hidden (was @UI.hidden in FASE 3.3) — the
+      search result row now shows which Request the object belongs to
 
-📊 Result: "Where is this object?" question answered instantly
-
+📊 Result: "Where is this object?" answered instantly — searching
+   "YTEST" on the TransportObject entity returns EntryRequest =
+   S4DK968784 (where it's physically recorded) and TransportRequest =
+   S4DK968783 (the parent Request), in ~10ms even against E071's 41M rows.
 ```
+
+**Design note:** this searches the `TransportObject` entity directly (not the `TransportRequest` List Report's own search box). Making the *Request's* search box also match on object names would require aggregating every object name under each request into a searchable text — an operation that would re-scan all of E071 per Request, the exact anti-pattern the FASE 3.x performance fix removed. Filtering `ObjectName` directly (a plain column, not a computed field) stays fast at any scale — measured ~9.6ms for an exact match and ~13.7ms for a prefix search, even across 41M+ rows.
 ---
 
-### **FASE 4: Transport Tasks** ▫️
+### **FASE 4: Transport Tasks** ✅ COMPLETE
 
-**Goal:** Show child tasks hierarchy  
-**Duration:** ~3 hours
+**Goal:** Show child tasks hierarchy
+**Duration:** ~1.5 hours
 
 ```
 Task Management
-├── ▫️ CDS View (child records)
-├── ▫️ Association (_Tasks: 1..N)
-└── ▫️ Tasks Tab in Object Page
+├── ✅ New Interface View (ZTR_I_TRANSPORT_TASK)
+│   ├── Source: E070 WHERE strkorr <> '' (Tasks only)
+│   ├── _Request: to-parent association → ZTR_I_TRANSPORT_REQUEST
+│   │              (direct join on ParentRequest/STRKORR — indexed, fast)
+│   └── _Objects: plain (non-composition) association → ZTR_I_TRANSPORT_OBJECT
+│              (direct join on TaskRequest = EntryRequest — same fast
+│              pattern as the FASE 3.x performance fix, not a computed field)
+├── ✅ New Projection + Metadata Extension (ZTR_C_TRANSPORT_TASK)
+│   ├── Own Object Page (General Information facet)
+│   └── Own "Objects" tab (#LINEITEM_REFERENCE → _Objects)
+├── ✅ ZTR_I_TRANSPORT_REQUEST: composition [0..*] of ZTR_I_TRANSPORT_TASK as _Tasks
+└── ✅ ZTR_C_TRANSPORT_REQUEST: new "Tasks" tab (#LINEITEM_REFERENCE → _Tasks)
 
-📊 Result: Full transport hierarchy
+📊 Result: Request → Tasks → Objects, each hop a direct indexed join.
+   Open a Request → "Tasks" tab lists its tasks (owner, status, description) →
+   click a task → its own Object Page → its own "Objects" tab shows what's
+   actually inside that task.
 ```
+
+**Design note:** `ZTR_I_TRANSPORT_OBJECT` is a composition child of `ZTR_I_TRANSPORT_REQUEST` (FASE 3.2) — a CDS to-parent association can only target one parent type. Rather than duplicate the Objects view, `ZTR_I_TRANSPORT_TASK` reaches it with a **plain, non-composition** to-many association instead (this whole service is read-only, no Behavior Definition anywhere, so composition's transactional semantics were never actually needed — a plain association is sufficient and avoids the one-parent constraint entirely).
+
+<details>
+<summary><b>📄 ZTR_I_TRANSPORT_TASK (Interface View)</b></summary>
+
+```abap
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Transport Task - Interface View'
+@Metadata.ignorePropagatedAnnotations: true
+
+define view entity ZTR_I_TRANSPORT_TASK
+  as select from e070
+
+  association [0..1] to e07t                   as _Text     on  $projection.TaskRequest = _Text.trkorr
+                                                             and _Text.langu             = $session.system_language
+
+  association [0..1] to ZTR_I_USER_NAME         as _UserName on  $projection.Owner = _UserName.UserID
+
+  association to parent ZTR_I_TRANSPORT_REQUEST as _Request  on  $projection.ParentRequest = _Request.TransportRequest
+
+  association [0..*] to ZTR_I_TRANSPORT_OBJECT  as _Objects  on  $projection.TaskRequest = _Objects.EntryRequest
+
+{
+      @EndUserText.label: 'Task'
+  key trkorr        as TaskRequest,
+
+      @EndUserText.label: 'Parent Request'
+      strkorr       as ParentRequest,
+
+      @EndUserText.label: 'Task Type'
+      trfunction    as TaskType,
+
+      @EndUserText.label: 'Task Status'
+      trstatus      as TaskStatus,
+
+      @EndUserText.label: 'Owner'
+      as4user       as Owner,
+
+      @EndUserText.label: 'Owner Name'
+      case when _UserName.FullName is not initial
+        then concat_with_space(
+               as4user,
+               concat( '(', concat( _UserName.FullName, ')' ) ),
+               1 )
+        else as4user
+      end as OwnerName,
+
+      @EndUserText.label: 'Creation Date'
+      as4date       as CreationDate,
+
+      @EndUserText.label: 'Creation Time'
+      as4time       as CreationTime,
+
+      @EndUserText.label: 'Description'
+      _Text.as4text as Description,
+
+      // Status Criticality
+      @EndUserText.label: 'Status Criticality'
+      case trstatus
+        when 'D' then 3
+        when 'L' then 2
+        when 'R' then 1
+        else 0
+      end           as StatusCriticality,
+
+      // Task Type Description
+      @EndUserText.label: 'Task Type Description'
+      case trfunction
+        when 'S' then 'Development/Correction'
+        when 'Q' then 'Customizing Task'
+        when 'R' then 'Repair'
+        when 'X' then 'Unclassified Task'
+        when 'K' then 'Workbench'
+        when 'W' then 'Customizing'
+        else trfunction
+      end           as TaskTypeText,
+
+      // Status Description
+      @EndUserText.label: 'Status Description'
+      case trstatus
+        when 'D' then 'Released'
+        when 'L' then 'Modifiable'
+        when 'R' then 'Released with Errors'
+        when 'N' then 'Not Released'
+        when 'O' then 'Released (Import Finished)'
+        else 'Unknown'
+      end           as StatusText,
+
+      /* Associations */
+      _Text,
+      _UserName,
+      _Request,
+      _Objects
+}
+where
+  strkorr <> ''
+```
+
+</details>
+
+<details>
+<summary><b>📄 ZTR_C_TRANSPORT_TASK (Projection View)</b></summary>
+
+```abap
+@EndUserText.label: 'Transport Task - Projection View'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@Metadata.allowExtensions: true
+
+define view entity ZTR_C_TRANSPORT_TASK
+  as projection on ZTR_I_TRANSPORT_TASK
+{
+  key TaskRequest,
+      ParentRequest,
+      TaskType,
+      TaskTypeText,
+      TaskStatus,
+      StatusText,
+      StatusCriticality,
+      Owner,
+      OwnerName,
+      Description,
+      CreationDate,
+      CreationTime,
+
+      /* Associations */
+      _Request : redirected to parent ZTR_C_TRANSPORT_REQUEST,
+      _Objects : redirected to ZTR_C_TRANSPORT_OBJECT
+}
+```
+
+</details>
+
+<details>
+<summary><b>🎨 ZTR_C_TRANSPORT_TASK (Metadata Extension)</b></summary>
+
+```abap
+@Metadata.layer: #CORE
+@UI: {
+  headerInfo: {
+    typeName: 'Transport Task',
+    typeNamePlural: 'Transport Tasks',
+    title: { type: #STANDARD, value: 'TaskRequest' },
+    description: { value: 'Description' }
+  }
+}
+
+annotate view ZTR_C_TRANSPORT_TASK with
+{
+  @UI: {
+    facet: [
+      {
+        id: 'GeneralInfo',
+        type: #IDENTIFICATION_REFERENCE,
+        label: 'General Information',
+        position: 10
+      },
+      {
+        id: 'ObjectsTab',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Objects',
+        position: 20,
+        targetElement: '_Objects'
+      }
+    ],
+    lineItem: [{ position: 10, importance: #HIGH }],
+    identification: [{ position: 10 }]
+  }
+  TaskRequest;
+
+  @UI: {
+    lineItem: [{ position: 20, importance: #HIGH, label: 'Type' }],
+    identification: [{ position: 20, label: 'Type' }]
+  }
+  TaskTypeText;
+
+  @UI: {
+    lineItem: [{ position: 30, importance: #HIGH, label: 'Status', criticality: 'StatusCriticality' }],
+    identification: [{ position: 30, label: 'Status', criticality: 'StatusCriticality' }]
+  }
+  StatusText;
+
+  @UI: {
+    lineItem: [{ position: 40, importance: #HIGH, label: 'Owner' }],
+    identification: [{ position: 40, label: 'Owner' }]
+  }
+  OwnerName;
+
+  @UI: {
+    lineItem: [{ position: 50, importance: #MEDIUM }],
+    identification: [{ position: 50 }]
+  }
+  Description;
+
+  @UI.identification: [{ position: 60, label: 'Creation Date' }]
+  CreationDate;
+
+  @UI.identification: [{ position: 70, label: 'Creation Time' }]
+  CreationTime;
+
+  @UI.hidden: true
+  ParentRequest;
+  @UI.hidden: true
+  TaskType;
+  @UI.hidden: true
+  TaskStatus;
+  @UI.hidden: true
+  StatusCriticality;
+  @UI.hidden: true
+  Owner;
+}
+```
+
+</details>
 
 ---
 
@@ -643,10 +883,11 @@ Action Library
 | **1.5.2** | 2026-09-19 | ✅ FASE 3.2 - RAP Integration (Parent-Child) |
 | **1.5.3** | 2026-09-19 | ✅ FASE 3.3 - UI Integration (Objects Tab) |
 | **1.5.4** | 2026-09-19 | ✅ FASE 3.4 - Visual Grouping (UX) |
-| **1.5.5** | TBD | ▫️ FASE 3.5 - Inverse Search configuration |
+| **1.5.5** | 2026-09-19 | ✅ FASE 3.5 - Inverse Search configuration (completed after FASE 4 — see reprioritization note above) |
 | **1.5.6** | 2026-09-19 | ✅ FASE 3.x - Bugfix: `ZTR_I_USER_VH` showed User ID twice instead of the resolved name |
 | **1.5.7** | 2026-09-19 | ✅ FASE 3.x - Bugfix: "Objects" facet was silently empty — missing `redirected to composition child`/`redirected to parent` |
 | **1.5.8** | 2026-09-19 | ✅ FASE 3.x - Perf: `_Request` join moved off a calculated field (~2.6s → ~9ms); Objects tab now scoped to direct entries only |
+| **1.6.0** | 2026-09-19 | ✅ FASE 4 - Transport Tasks (Request → Tasks → Objects hierarchy) |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
@@ -656,7 +897,7 @@ Action Library
 ```
 Package: ZTRANSPORT_TOOLKIT
 │
-├── 📄 CDS Views (8)
+├── 📄 CDS Views (10)
 │   ├── ZTR_I_TRANSPORT_REQUEST      (Interface View)
 │   ├── ZTR_C_TRANSPORT_REQUEST      (Projection View)
 │   ├── ZTR_I_USER_NAME              (User Name Resolution)
@@ -664,11 +905,14 @@ Package: ZTRANSPORT_TOOLKIT
 │   ├── ZTR_I_TRANSPORT_TYPE_VH      (Value Help - Type)
 │   ├── ZTR_I_USER_VH                (Value Help - User)
 │   ├── ZTR_I_TRANSPORT_OBJECT       (Interface View - Objects, E071)
-│   └── ZTR_C_TRANSPORT_OBJECT       (Projection View - Objects)
+│   ├── ZTR_C_TRANSPORT_OBJECT       (Projection View - Objects)
+│   ├── ZTR_I_TRANSPORT_TASK         (Interface View - Tasks, E070)
+│   └── ZTR_C_TRANSPORT_TASK         (Projection View - Tasks)
 │
-├── 🎨 Metadata Extensions (2)
+├── 🎨 Metadata Extensions (3)
 │   ├── ZTR_C_TRANSPORT_REQUEST
-│   └── ZTR_C_TRANSPORT_OBJECT
+│   ├── ZTR_C_TRANSPORT_OBJECT
+│   └── ZTR_C_TRANSPORT_TASK
 │
 ├── 🌐 Service Definitions (1)
 │   └── ZTR_UI_TRANSPORT_REQUEST_O4
@@ -707,6 +951,9 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
 
   // Transport Objects (FASE 3.2)
   composition [0..*] of ZTR_I_TRANSPORT_OBJECT    as _Objects
+
+  // Transport Tasks (FASE 4)
+  composition [0..*] of ZTR_I_TRANSPORT_TASK      as _Tasks
 
 {
       @EndUserText.label: 'Transport Request'
@@ -784,7 +1031,8 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
       _TypeVH,
       _UserVH,
       _UserName,
-      _Objects
+      _Objects,
+      _Tasks
 }
 where
   strkorr = '' // Only ORDERs (no TASKs)
@@ -849,7 +1097,8 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
       StatusText,
 
       /* Associations */
-      _Objects : redirected to composition child ZTR_C_TRANSPORT_OBJECT
+      _Objects : redirected to composition child ZTR_C_TRANSPORT_OBJECT,
+      _Tasks   : redirected to composition child ZTR_C_TRANSPORT_TASK
 }
 ```
 
@@ -921,6 +1170,15 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
         label: 'Objects',
         position: 30,
         targetElement: '_Objects'
+      },
+      // Tasks Tab (FASE 4)
+      {
+        id: 'TasksTab',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Tasks',
+        position: 40,
+        targetElement: '_Tasks'
       }
     ],
     // List Report & General Information
@@ -1160,6 +1418,7 @@ define service ZTR_UI_TRANSPORT_REQUEST_O4 {
   expose ZTR_I_TRANSPORT_TYPE_VH   as TransportType;
   expose ZTR_I_USER_VH             as Users;
   expose ZTR_C_TRANSPORT_OBJECT    as TransportObject;
+  expose ZTR_C_TRANSPORT_TASK      as TransportTask;
 }
 ```
 
@@ -1359,8 +1618,8 @@ SOFTWARE.
 ---
 
 **Last Updated:** September 2026  
-**Current Phase:** FASE 3.4 Complete ✅  
-**Next Milestone:** FASE 3.5 - Inverse Search (find a Request by object name)
+**Current Phase:** FASE 3.5 Complete ✅ — FASE 3 fully done  
+**Next Milestone:** FASE 5 - ToC Creator (Transport of Copies automation)
 
 ---
 
