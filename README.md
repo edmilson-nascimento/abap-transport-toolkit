@@ -588,7 +588,7 @@ Action Library
 | **1.5.3** | 2026-09-19 | ✅ FASE 3.3 - UI Integration (Objects Tab) |
 | **1.5.4** | TBD | ▫️ FASE 3.4 - Visual Grouping (UX) |
 | **1.5.5** | TBD | ▫️ FASE 3.5 - Inverse Search configuration |
-| **1.5.6** | TBD | ▫️ FASE 3.x - Refinements & Bugfixes |
+| **1.5.6** | 2026-09-19 | ✅ FASE 3.x - Bugfix: `ZTR_I_USER_VH` showed User ID twice instead of the resolved name |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
@@ -1063,16 +1063,29 @@ where
 
 define view entity ZTR_I_USER_VH
   as select distinct from e070
-{
-      @ObjectModel.text.element: ['UserName']
-  key as4user as UserID,
 
+  association [0..1] to ZTR_I_USER_NAME as _UserName on $projection.UserID = _UserName.UserID
+
+{
+      @EndUserText.label: 'User ID'
+      @ObjectModel.text.element: ['UserName']
+  key as4user           as UserID,
+
+      @EndUserText.label: 'Name'
       @Semantics.text: true
-      as4user as UserName
+      case when _UserName.FullName is not initial
+        then _UserName.FullName
+        else as4user
+      end                as UserName,
+
+      /* Associations */
+      _UserName
 }
 where
   as4user <> ''
 ```
+
+**Bugfix (2026-09-19):** the original version set `UserName` to a copy of `as4user`, so the Owner Value Help dialog showed the same code twice (e.g. `JESUSEDM (JESUSEDM)`) instead of a real name. Fixed by resolving `UserName` through `ZTR_I_USER_NAME` (the same USR21+ADRP lookup used for `OwnerName` in FASE 2.4), with a fallback to the User ID when no name is found.
 
 </details>
 
