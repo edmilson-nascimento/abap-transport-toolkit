@@ -20,8 +20,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
   - [FASE 2.2: Value Helps & Filters](#fase-22-value-helps--filters--complete)
   - [FASE 2.3: Object Page Enhancements](#fase-23-object-page-enhancements--complete)
   - [FASE 2.4: Owner Name Resolution](#fase-24-owner-name-resolution--complete)
-  - [FASE 3.1: Data Modeling](#fase-31-data-modeling-e071-)
-  - [FASE 3.2: RAP Integration](#fase-32-rap-integration-composition-)
+  - [FASE 3.1: Data Modeling](#fase-31-data-modeling-e071--complete)
+  - [FASE 3.2: RAP Integration](#fase-32-rap-integration-composition--complete)
   - [FASE 3.3: UI Integration](#fase-33-ui-integration-object-page-)
   - [FASE 3.4: Visual Grouping](#fase-34-visual-grouping-ux-)
   - [FASE 3.5: Inverse Search](#fase-35-inverse-search-)
@@ -47,8 +47,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 3. 🎉 App launches with 35,000+ transport requests!
 ```
 
-**Current Status:** FASE 2.4 Complete ✅  
-**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution
+**Current Status:** FASE 3.2 Complete ✅  
+**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition
 
 
 ## 📖 Overview
@@ -236,44 +236,144 @@ Owner Name Resolution
 
 ---
 
-### **FASE 3.1: Data Modeling (E071)** ▫️
+### **FASE 3.1: Data Modeling (E071)** ✅ COMPLETE
 
 **Goal:** Create CDS view to read transport objects (`E071`) merging Request and Task data
-**Duration:** ~2 hours
-
-```
-Data Model Expansion
-├── ▫️ New Interface View (ZTR_I_TRANSPORT_OBJECT)
-│   ├── Source: E071 (Transport Objects)
-│   ├── Logic: Join E070 to identify Parent Request
-│   └── Fields: PGMID, Object Type, Object Name, Task Owner
-└── ▫️ Text Normalization
-    └── Case statement for readable types (e.g., 'PROG' -> 'Program')
-
-📊 Result: Backend ready to read objects from DB
-
-```
-
----
-
-### **FASE 3.2: RAP Integration (Composition)** ▫️
-
-**Goal:** Establish Parent-Child relationship between Request and Objects
 **Duration:** ~1 hour
 
 ```
+Data Model Expansion
+├── ✅ New Interface View (ZTR_I_TRANSPORT_OBJECT)
+│   ├── Source: E071 (Transport Objects)
+│   ├── Logic: Association to E070 resolves the parent Request
+│   │          (rolls a Task's objects up to its owning Request)
+│   └── Fields: ProgramId, ObjectType, ObjectName, ObjectFunction,
+│               LockFlag, TaskOwner, TransportRequest
+└── ✅ Text Normalization
+    └── Case statement for readable types (e.g., 'PROG' -> 'Program')
+
+📊 Result: Backend ready to read objects from DB
+```
+
+<details>
+<summary><b>📄 ZTR_I_TRANSPORT_OBJECT (Interface View)</b></summary>
+
+```abap
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Transport Object - Interface View'
+@Metadata.ignorePropagatedAnnotations: true
+
+define view entity ZTR_I_TRANSPORT_OBJECT
+  as select from e071
+
+  association [0..1] to e070               as _Task    on  $projection.EntryRequest = _Task.trkorr
+
+  association to parent ZTR_I_TRANSPORT_REQUEST as _Request on  $projection.TransportRequest = _Request.TransportRequest
+
+{
+      @EndUserText.label: 'Entry Request/Task'
+  key trkorr         as EntryRequest,
+
+      @EndUserText.label: 'Entry Position'
+  key as4pos          as EntryPosition,
+
+      @EndUserText.label: 'Parent Request'
+      case when _Task.strkorr is not initial
+        then _Task.strkorr
+        else trkorr
+      end             as TransportRequest,
+
+      @EndUserText.label: 'Program ID'
+      pgmid           as ProgramId,
+
+      @EndUserText.label: 'Object Type'
+      object          as ObjectType,
+
+      @EndUserText.label: 'Object Name'
+      obj_name        as ObjectName,
+
+      @EndUserText.label: 'Object Function'
+      objfunc         as ObjectFunction,
+
+      @EndUserText.label: 'Lock Flag'
+      lockflag        as LockFlag,
+
+      @EndUserText.label: 'Task Owner'
+      _Task.as4user   as TaskOwner,
+
+      // Object Type Description
+      @EndUserText.label: 'Object Type Description'
+      case object
+        when 'PROG' then 'Program'
+        when 'CLAS' then 'Class'
+        when 'INTF' then 'Interface'
+        when 'FUGR' then 'Function Group'
+        when 'FUNC' then 'Function Module'
+        when 'TABL' then 'Table'
+        when 'TTYP' then 'Table Type'
+        when 'DTEL' then 'Data Element'
+        when 'DOMA' then 'Domain'
+        when 'DDLS' then 'CDS View'
+        when 'DDLX' then 'Metadata Extension'
+        when 'BDEF' then 'Behavior Definition'
+        when 'SRVD' then 'Service Definition'
+        when 'SRVB' then 'Service Binding'
+        when 'MSAG' then 'Message Class'
+        when 'DEVC' then 'Package'
+        when 'VIEW' then 'View'
+        when 'ENHO' then 'Enhancement Implementation'
+        else object
+      end             as ObjectTypeText,
+
+      /* Associations */
+      _Task,
+      _Request
+}
+```
+
+**Design note:** `E071` entries can be attached either to the main Request or to one of its Tasks. `TransportRequest` resolves this via the `_Task` association to `E070`: when the owning `TRKORR` is itself a Task (`STRKORR` is not initial), it rolls up to the parent Request; otherwise it is already the Request. This is what FASE 3.2 will use to compose objects under `ZTR_I_TRANSPORT_REQUEST`.
+
+</details>
+
+---
+
+---
+
+### **FASE 3.2: RAP Integration (Composition)** ✅ COMPLETE
+
+**Goal:** Establish Parent-Child relationship between Request and Objects
+**Duration:** ~30 minutes
+
+```
 Hierarchy Definition
-├── ▫️ Root View (ZTR_I_TRANSPORT_REQUEST)
-│   └── Add: Composition [0..*] of ZTR_I_TRANSPORT_OBJECT
+├── ✅ Root View (ZTR_I_TRANSPORT_REQUEST)
+│   └── Added: composition [0..*] of ZTR_I_TRANSPORT_OBJECT as _Objects
 │
-├── ▫️ Child View (ZTR_I_TRANSPORT_OBJECT)
-│   └── Add: Association to parent ZTR_I_TRANSPORT_REQUEST
+├── ✅ Child View (ZTR_I_TRANSPORT_OBJECT)
+│   └── Added: association to parent ZTR_I_TRANSPORT_REQUEST as _Request
 │
-└── ▫️ Service Definition
-    └── Expose ZTR_I_TRANSPORT_OBJECT (for internal navigation)
+└── ✅ Service Definition
+    └── Exposed ZTR_I_TRANSPORT_OBJECT as TransportObject (internal navigation)
 
 📊 Result: OData service supports deep hierarchy
+```
 
+**Key snippets (added to existing views — see [Complete Source Code](#complete-source-code) for the full files):**
+
+```abap
+" ZTR_I_TRANSPORT_REQUEST — new composition association
+composition [0..*] of ZTR_I_TRANSPORT_OBJECT as _Objects
+```
+
+```abap
+" ZTR_I_TRANSPORT_OBJECT — new back-reference to the parent
+association to parent ZTR_I_TRANSPORT_REQUEST as _Request on $projection.TransportRequest = _Request.TransportRequest
+```
+
+```abap
+" ZTR_UI_TRANSPORT_REQUEST_O4 — new exposure
+expose ZTR_I_TRANSPORT_OBJECT as TransportObject;
 ```
 
 ---
@@ -407,8 +507,8 @@ Action Library
 | **1.2.0** | 2025-02-05 | ✅ FASE 2.2 - Value helps & dropdown filters |
 | **1.3.0** | 2025-02-09 | ✅ FASE 2.3 - Object Page enhancements |
 | **1.4.0** | 2025-02-09 | ✅ FASE 2.4 - Owner name resolution |
-| **1.5.1** | TBD | ▫️ FASE 3.1 - Data Modeling (E071 view) |
-| **1.5.2** | TBD | ▫️ FASE 3.2 - RAP Integration (Parent-Child) |
+| **1.5.1** | 2026-09-19 | ✅ FASE 3.1 - Data Modeling (E071 view) |
+| **1.5.2** | 2026-09-19 | ✅ FASE 3.2 - RAP Integration (Parent-Child) |
 | **1.5.3** | TBD | ▫️ FASE 3.3 - UI Integration (Objects Tab) |
 | **1.5.4** | TBD | ▫️ FASE 3.4 - Visual Grouping (UX) |
 | **1.5.5** | TBD | ▫️ FASE 3.5 - Inverse Search configuration |
@@ -422,13 +522,14 @@ Action Library
 ```
 Package: ZTRANSPORT_TOOLKIT
 │
-├── 📄 CDS Views (6)
+├── 📄 CDS Views (7)
 │   ├── ZTR_I_TRANSPORT_REQUEST      (Interface View)
 │   ├── ZTR_C_TRANSPORT_REQUEST      (Projection View)
 │   ├── ZTR_I_USER_NAME              (User Name Resolution)
 │   ├── ZTR_I_TRANSPORT_STATUS_VH    (Value Help - Status)
 │   ├── ZTR_I_TRANSPORT_TYPE_VH      (Value Help - Type)
-│   └── ZTR_I_USER_VH                (Value Help - User)
+│   ├── ZTR_I_USER_VH                (Value Help - User)
+│   └── ZTR_I_TRANSPORT_OBJECT       (Interface View - Objects, E071)
 │
 ├── 🎨 Metadata Extensions (1)
 │   └── ZTR_C_TRANSPORT_REQUEST
@@ -467,6 +568,9 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
 
   // User Name Resolution
   association [0..1] to ZTR_I_USER_NAME           as _UserName on  $projection.Owner = _UserName.UserID
+
+  // Transport Objects (FASE 3.2)
+  composition [0..*] of ZTR_I_TRANSPORT_OBJECT    as _Objects
 
 {
       @EndUserText.label: 'Transport Request'
@@ -543,7 +647,8 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
       _StatusVH,
       _TypeVH,
       _UserVH,
-      _UserName
+      _UserName,
+      _Objects
 }
 where
   strkorr = '' // Only ORDERs (no TASKs)
@@ -891,6 +996,7 @@ define service ZTR_UI_TRANSPORT_REQUEST_O4 {
   expose ZTR_I_TRANSPORT_STATUS_VH as TransportStatus;
   expose ZTR_I_TRANSPORT_TYPE_VH   as TransportType;
   expose ZTR_I_USER_VH             as Users;
+  expose ZTR_I_TRANSPORT_OBJECT    as TransportObject;
 }
 ```
 
@@ -1067,9 +1173,9 @@ SOFTWARE.
 
 ---
 
-**Last Updated:** February 2025  
-**Current Phase:** FASE 2.4 Complete ✅  
-**Next Milestone:** Transport Objects (E071) & Transport Tasks
+**Last Updated:** September 2026  
+**Current Phase:** FASE 3.2 Complete ✅  
+**Next Milestone:** FASE 3.3 - UI Integration (Objects tab in the Object Page)
 
 ---
 
