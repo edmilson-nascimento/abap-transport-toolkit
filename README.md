@@ -22,7 +22,7 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
   - [FASE 2.4: Owner Name Resolution](#fase-24-owner-name-resolution--complete)
   - [FASE 3.1: Data Modeling](#fase-31-data-modeling-e071--complete)
   - [FASE 3.2: RAP Integration](#fase-32-rap-integration-composition--complete)
-  - [FASE 3.3: UI Integration](#fase-33-ui-integration-object-page-)
+  - [FASE 3.3: UI Integration](#fase-33-ui-integration-object-page--complete)
   - [FASE 3.4: Visual Grouping](#fase-34-visual-grouping-ux-)
   - [FASE 3.5: Inverse Search](#fase-35-inverse-search-)
   - [FASE 4: Transport Tasks](#fase-4-transport-tasks-)
@@ -47,8 +47,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 3. 🎉 App launches with 35,000+ transport requests!
 ```
 
-**Current Status:** FASE 3.2 Complete ✅  
-**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition
+**Current Status:** FASE 3.3 Complete ✅  
+**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition • Objects tab in the Object Page
 
 
 ## 📖 Overview
@@ -372,28 +372,104 @@ association to parent ZTR_I_TRANSPORT_REQUEST as _Request on $projection.Transpo
 ```
 
 ```abap
-" ZTR_UI_TRANSPORT_REQUEST_O4 — new exposure
+" ZTR_UI_TRANSPORT_REQUEST_O4 — new exposure (later re-pointed to the
+" ZTR_C_TRANSPORT_OBJECT projection in FASE 3.3)
 expose ZTR_I_TRANSPORT_OBJECT as TransportObject;
 ```
 
 ---
 
-### **FASE 3.3: UI Integration (Object Page)** ▫️
+### **FASE 3.3: UI Integration (Object Page)** ✅ COMPLETE
 
 **Goal:** Display the object list in a new Tab
-**Duration:** ~1.5 hours
+**Duration:** ~45 minutes
 
 ```
 UI Implementation
-├── ▫️ Projection View (ZTR_C_TRANSPORT_OBJECT)
-│   └── Define UI fields (LineItem)
+├── ✅ Projection View (ZTR_C_TRANSPORT_OBJECT)
+│   └── Defined UI fields (LineItem): Type, Object Name, Function, Task Owner
 │
-└── ▫️ Metadata Extension (ZTR_C_TRANSPORT_REQUEST)
-    └── Add Facet: #LINEITEM_REFERENCE (Target: _Objects)
+├── ✅ Metadata Extension (ZTR_C_TRANSPORT_OBJECT)
+│   └── New — line item columns for the Objects table
+│
+├── ✅ Projection View (ZTR_C_TRANSPORT_REQUEST)
+│   └── Exposed the _Objects composition association
+│
+├── ✅ Metadata Extension (ZTR_C_TRANSPORT_REQUEST)
+│   └── Added Facet: #LINEITEM_REFERENCE (targetElement: _Objects)
+│
+└── ✅ Service Definition
+    └── Re-pointed TransportObject exposure from ZTR_I_TRANSPORT_OBJECT to
+        ZTR_C_TRANSPORT_OBJECT (consistent with the project's C_/projection pattern)
 
-📊 Result: New "Objects" tab appears in the Object Page
-
+📊 Result: New "Objects" tab appears in the Object Page, listing E071 entries for that request
 ```
+
+<details>
+<summary><b>📄 ZTR_C_TRANSPORT_OBJECT (Projection View)</b></summary>
+
+```abap
+@EndUserText.label: 'Transport Object - Projection View'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@Metadata.allowExtensions: true
+
+define view entity ZTR_C_TRANSPORT_OBJECT
+  as projection on ZTR_I_TRANSPORT_OBJECT
+{
+  key EntryRequest,
+  key EntryPosition,
+      TransportRequest,
+      ProgramId,
+      ObjectType,
+      ObjectTypeText,
+      ObjectName,
+      ObjectFunction,
+      LockFlag,
+      TaskOwner
+}
+```
+
+**Note:** this projection has no `provider contract transactional_query` — it is a composition child, addressed only via `_Objects` navigation from `ZTR_C_TRANSPORT_REQUEST`, never queried standalone. Activation succeeds with an informational warning about the missing contract, which is expected for this pattern.
+
+</details>
+
+<details>
+<summary><b>🎨 ZTR_C_TRANSPORT_OBJECT (Metadata Extension)</b></summary>
+
+```abap
+@Metadata.layer: #CORE
+annotate view ZTR_C_TRANSPORT_OBJECT with
+{
+  @UI.lineItem: [{ position: 10, importance: #HIGH, label: 'Type' }]
+  ObjectTypeText;
+
+  @UI.lineItem: [{ position: 20, importance: #HIGH, label: 'Object Name' }]
+  ObjectName;
+
+  @UI.lineItem: [{ position: 30, importance: #MEDIUM, label: 'Function' }]
+  ObjectFunction;
+
+  @UI.lineItem: [{ position: 40, importance: #MEDIUM, label: 'Task Owner' }]
+  TaskOwner;
+
+  @UI.hidden: true
+  EntryRequest;
+  @UI.hidden: true
+  EntryPosition;
+  @UI.hidden: true
+  TransportRequest;
+  @UI.hidden: true
+  ProgramId;
+  @UI.hidden: true
+  ObjectType;
+  @UI.hidden: true
+  LockFlag;
+}
+```
+
+</details>
+
+---
 
 ---
 
@@ -509,7 +585,7 @@ Action Library
 | **1.4.0** | 2025-02-09 | ✅ FASE 2.4 - Owner name resolution |
 | **1.5.1** | 2026-09-19 | ✅ FASE 3.1 - Data Modeling (E071 view) |
 | **1.5.2** | 2026-09-19 | ✅ FASE 3.2 - RAP Integration (Parent-Child) |
-| **1.5.3** | TBD | ▫️ FASE 3.3 - UI Integration (Objects Tab) |
+| **1.5.3** | 2026-09-19 | ✅ FASE 3.3 - UI Integration (Objects Tab) |
 | **1.5.4** | TBD | ▫️ FASE 3.4 - Visual Grouping (UX) |
 | **1.5.5** | TBD | ▫️ FASE 3.5 - Inverse Search configuration |
 | **1.5.6** | TBD | ▫️ FASE 3.x - Refinements & Bugfixes |
@@ -522,17 +598,19 @@ Action Library
 ```
 Package: ZTRANSPORT_TOOLKIT
 │
-├── 📄 CDS Views (7)
+├── 📄 CDS Views (8)
 │   ├── ZTR_I_TRANSPORT_REQUEST      (Interface View)
 │   ├── ZTR_C_TRANSPORT_REQUEST      (Projection View)
 │   ├── ZTR_I_USER_NAME              (User Name Resolution)
 │   ├── ZTR_I_TRANSPORT_STATUS_VH    (Value Help - Status)
 │   ├── ZTR_I_TRANSPORT_TYPE_VH      (Value Help - Type)
 │   ├── ZTR_I_USER_VH                (Value Help - User)
-│   └── ZTR_I_TRANSPORT_OBJECT       (Interface View - Objects, E071)
+│   ├── ZTR_I_TRANSPORT_OBJECT       (Interface View - Objects, E071)
+│   └── ZTR_C_TRANSPORT_OBJECT       (Projection View - Objects)
 │
-├── 🎨 Metadata Extensions (1)
-│   └── ZTR_C_TRANSPORT_REQUEST
+├── 🎨 Metadata Extensions (2)
+│   ├── ZTR_C_TRANSPORT_REQUEST
+│   └── ZTR_C_TRANSPORT_OBJECT
 │
 ├── 🌐 Service Definitions (1)
 │   └── ZTR_UI_TRANSPORT_REQUEST_O4
@@ -710,7 +788,10 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
       RequestTypeText,
 
       @Search.defaultSearchElement: true
-      StatusText
+      StatusText,
+
+      /* Associations */
+      _Objects
 }
 ```
 
@@ -771,6 +852,15 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
         label: 'Technical Details',
         targetQualifier: 'TechnicalDetails',
         position: 20
+      },
+      // Objects Tab (FASE 3.3)
+      {
+        id: 'ObjectsTab',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Objects',
+        position: 30,
+        targetElement: '_Objects'
       }
     ],
     // List Report & General Information
@@ -996,7 +1086,7 @@ define service ZTR_UI_TRANSPORT_REQUEST_O4 {
   expose ZTR_I_TRANSPORT_STATUS_VH as TransportStatus;
   expose ZTR_I_TRANSPORT_TYPE_VH   as TransportType;
   expose ZTR_I_USER_VH             as Users;
-  expose ZTR_I_TRANSPORT_OBJECT    as TransportObject;
+  expose ZTR_C_TRANSPORT_OBJECT    as TransportObject;
 }
 ```
 
@@ -1174,8 +1264,8 @@ SOFTWARE.
 ---
 
 **Last Updated:** September 2026  
-**Current Phase:** FASE 3.2 Complete ✅  
-**Next Milestone:** FASE 3.3 - UI Integration (Objects tab in the Object Page)
+**Current Phase:** FASE 3.3 Complete ✅  
+**Next Milestone:** FASE 3.4 - Visual Grouping (group Objects by Task/Owner)
 
 ---
 
