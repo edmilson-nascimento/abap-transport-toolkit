@@ -23,7 +23,7 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
   - [FASE 3.1: Data Modeling](#fase-31-data-modeling-e071--complete)
   - [FASE 3.2: RAP Integration](#fase-32-rap-integration-composition--complete)
   - [FASE 3.3: UI Integration](#fase-33-ui-integration-object-page--complete)
-  - [FASE 3.4: Visual Grouping](#fase-34-visual-grouping-ux-)
+  - [FASE 3.4: Visual Grouping](#fase-34-visual-grouping-ux--complete)
   - [FASE 3.5: Inverse Search](#fase-35-inverse-search-)
   - [FASE 4: Transport Tasks](#fase-4-transport-tasks-)
   - [FASE 5: ToC Creator](#fase-5-toc-creator-ztoc_creator-replacement-)
@@ -47,8 +47,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 3. 🎉 App launches with 35,000+ transport requests!
 ```
 
-**Current Status:** FASE 3.3 Complete ✅  
-**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition • Objects tab in the Object Page
+**Current Status:** FASE 3.4 Complete ✅  
+**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition • Objects tab in the Object Page • Objects grouped by Task/Owner
 
 
 ## 📖 Overview
@@ -467,29 +467,78 @@ annotate view ZTR_C_TRANSPORT_OBJECT with
 }
 ```
 
+**Note:** this Metadata Extension was extended in FASE 3.4 below with `@UI.presentationVariant` grouping — see that section for the current version.
+
 </details>
 
 ---
 
----
-
-### **FASE 3.4: Visual Grouping (UX)** ▫️
+### **FASE 3.4: Visual Grouping (UX)** ✅ COMPLETE
 
 **Goal:** Organize objects visually by Task or Owner using Fiori Elements
-**Duration:** ~1 hour
+**Duration:** ~20 minutes
 
 ```
 Visual Refinement
-├── ▫️ Annotation: @UI.presentationVariant
-│   └── groupBy: ['TaskOwner', 'TransportTask']
+├── ✅ Annotation: @UI.presentationVariant
+│   ├── groupBy: ['EntryRequest', 'TaskOwner']
+│   └── sortOrder: matching the groupBy fields (required — grouping only
+│       merges adjacent rows in a pre-sorted result, otherwise the same
+│       group can render as multiple fragmented headers)
 │
-└── ▫️ Visual Result
-    ├── Group 1: Task DEVK900001 (Owner: EDMILSON) - 5 Objects
-    └── Group 2: Task DEVK900002 (Owner: JOHN) - 3 Objects
+└── ✅ EntryRequest un-hidden (position 5) so the group header has a label
 
-📊 Result: Organized, hierarchical view without custom JS
-
+📊 Result: Objects tab renders collapsible group headers (native
+sap.m.Table / GroupHeaderListItem behavior — no custom JS)
 ```
+
+<details>
+<summary><b>🎨 ZTR_C_TRANSPORT_OBJECT (Metadata Extension — updated)</b></summary>
+
+```abap
+@Metadata.layer: #CORE
+@UI.presentationVariant: [{
+  sortOrder: [
+    { by: 'EntryRequest', direction: #ASC },
+    { by: 'TaskOwner', direction: #ASC }
+  ],
+  groupBy: ['EntryRequest', 'TaskOwner']
+}]
+annotate view ZTR_C_TRANSPORT_OBJECT with
+{
+  @UI: {
+    lineItem: [{ position: 5, importance: #HIGH, label: 'Task/Request' }]
+  }
+  EntryRequest;
+
+  @UI.lineItem: [{ position: 10, importance: #HIGH, label: 'Type' }]
+  ObjectTypeText;
+
+  @UI.lineItem: [{ position: 20, importance: #HIGH, label: 'Object Name' }]
+  ObjectName;
+
+  @UI.lineItem: [{ position: 30, importance: #MEDIUM, label: 'Function' }]
+  ObjectFunction;
+
+  @UI.lineItem: [{ position: 40, importance: #MEDIUM, label: 'Task Owner' }]
+  TaskOwner;
+
+  @UI.hidden: true
+  EntryPosition;
+  @UI.hidden: true
+  TransportRequest;
+  @UI.hidden: true
+  ProgramId;
+  @UI.hidden: true
+  ObjectType;
+  @UI.hidden: true
+  LockFlag;
+}
+```
+
+</details>
+
+---
 
 ---
 
@@ -586,7 +635,7 @@ Action Library
 | **1.5.1** | 2026-09-19 | ✅ FASE 3.1 - Data Modeling (E071 view) |
 | **1.5.2** | 2026-09-19 | ✅ FASE 3.2 - RAP Integration (Parent-Child) |
 | **1.5.3** | 2026-09-19 | ✅ FASE 3.3 - UI Integration (Objects Tab) |
-| **1.5.4** | TBD | ▫️ FASE 3.4 - Visual Grouping (UX) |
+| **1.5.4** | 2026-09-19 | ✅ FASE 3.4 - Visual Grouping (UX) |
 | **1.5.5** | TBD | ▫️ FASE 3.5 - Inverse Search configuration |
 | **1.5.6** | 2026-09-19 | ✅ FASE 3.x - Bugfix: `ZTR_I_USER_VH` showed User ID twice instead of the resolved name |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
@@ -1277,8 +1326,8 @@ SOFTWARE.
 ---
 
 **Last Updated:** September 2026  
-**Current Phase:** FASE 3.3 Complete ✅  
-**Next Milestone:** FASE 3.4 - Visual Grouping (group Objects by Task/Owner)
+**Current Phase:** FASE 3.4 Complete ✅  
+**Next Milestone:** FASE 3.5 - Inverse Search (find a Request by object name)
 
 ---
 
