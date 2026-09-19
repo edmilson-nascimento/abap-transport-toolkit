@@ -269,7 +269,7 @@ define view entity ZTR_I_TRANSPORT_OBJECT
 
   association [0..1] to e070               as _Task    on  $projection.EntryRequest = _Task.trkorr
 
-  association to parent ZTR_I_TRANSPORT_REQUEST as _Request on  $projection.TransportRequest = _Request.TransportRequest
+  association to parent ZTR_I_TRANSPORT_REQUEST as _Request on  $projection.EntryRequest = _Request.TransportRequest
 
 {
       @EndUserText.label: 'Entry Request/Task'
@@ -333,6 +333,8 @@ define view entity ZTR_I_TRANSPORT_OBJECT
 ```
 
 **Design note:** `E071` entries can be attached either to the main Request or to one of its Tasks. `TransportRequest` resolves this via the `_Task` association to `E070`: when the owning `TRKORR` is itself a Task (`STRKORR` is not initial), it rolls up to the parent Request; otherwise it is already the Request. This is what FASE 3.2 will use to compose objects under `ZTR_I_TRANSPORT_REQUEST`.
+
+**Performance note (2026-09-19):** the `_Request` composition originally joined on the *computed* `TransportRequest` field (the `CASE`/`_Task` roll-up above). E071 has 41M+ rows system-wide, and filtering on a calculated column prevents the database from using the index on `TRKORR` — measured at **~2.6s** per Object Page navigation (full scan), versus **~9ms** filtering `TRKORR` directly (a **~280x** difference). Fixed by joining `_Request` on the raw `EntryRequest` (`TRKORR`) instead. Trade-off: the "Objects" tab now shows only objects entered *directly* on the Request — objects recorded under one of its Tasks won't appear until FASE 4 (Transport Tasks) models that hop as its own indexed join, rather than resolving it through this same computed field.
 
 </details>
 
@@ -425,9 +427,14 @@ define view entity ZTR_C_TRANSPORT_OBJECT
       ObjectName,
       ObjectFunction,
       LockFlag,
-      TaskOwner
+      TaskOwner,
+
+      /* Associations */
+      _Request : redirected to parent ZTR_C_TRANSPORT_REQUEST
 }
 ```
+
+**Bugfix (2026-09-19):** the original version had no `_Request` association at all. A composition child projection must expose its to-parent association with `redirected to parent <root projection>` *before* the root's `redirected to composition child` can resolve — without it, the "Objects" facet on the Object Page silently renders nothing (no error in ADT, no OData error — the facet just never appears). See the matching fix on `ZTR_C_TRANSPORT_REQUEST` above.
 
 **Note:** this projection has no `provider contract transactional_query` — it is a composition child, addressed only via `_Objects` navigation from `ZTR_C_TRANSPORT_REQUEST`, never queried standalone. Activation succeeds with an informational warning about the missing contract, which is expected for this pattern.
 
@@ -638,6 +645,8 @@ Action Library
 | **1.5.4** | 2026-09-19 | ✅ FASE 3.4 - Visual Grouping (UX) |
 | **1.5.5** | TBD | ▫️ FASE 3.5 - Inverse Search configuration |
 | **1.5.6** | 2026-09-19 | ✅ FASE 3.x - Bugfix: `ZTR_I_USER_VH` showed User ID twice instead of the resolved name |
+| **1.5.7** | 2026-09-19 | ✅ FASE 3.x - Bugfix: "Objects" facet was silently empty — missing `redirected to composition child`/`redirected to parent` |
+| **1.5.8** | 2026-09-19 | ✅ FASE 3.x - Perf: `_Request` join moved off a calculated field (~2.6s → ~9ms); Objects tab now scoped to direct entries only |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
@@ -840,9 +849,11 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
       StatusText,
 
       /* Associations */
-      _Objects
+      _Objects : redirected to composition child ZTR_C_TRANSPORT_OBJECT
 }
 ```
+
+**Bugfix (2026-09-19):** just listing `_Objects` here re-exposed the *interface's* association target (`ZTR_I_TRANSPORT_OBJECT`), which is never published as an OData entity set — only its projection (`ZTR_C_TRANSPORT_OBJECT`) is. Without an explicit `redirected to composition child`, Fiori Elements has no usable navigation target, so the `#LINEITEM_REFERENCE` facet silently fails to render (no error — it just doesn't show the "Objects" tab). See the matching fix on `ZTR_C_TRANSPORT_OBJECT` below (`_Request : redirected to parent ZTR_C_TRANSPORT_REQUEST`), which is required on the child side before the parent's redirect resolves.
 
 </details>
 
@@ -1256,6 +1267,28 @@ define service ZTR_UI_TRANSPORT_REQUEST_O4 {
 2. Check `USR21` and `ADRP` tables have data for the user
 3. Confirm `adrp.date_from = '00010101'` returns a record
 4. If `name_text` is empty in ADRP, the fallback shows the User ID
+
+---
+
+### A `#LINEITEM_REFERENCE` facet (composition tab) silently doesn't appear
+
+**Symptom:** the Object Page shows fewer tabs than expected — no error anywhere (not in ADT, not in the browser console, not in the Gateway error log) — the facet just never renders.
+
+**Cause:** in a CDS projection view, simply listing an inherited composition/association by name (e.g. `_Objects`) re-exposes the *interface's* association target, not its projection. If that interface isn't itself published as an OData entity set (only its projection is), Fiori Elements has no usable navigation target.
+
+**Solution:** explicitly redirect the association on both sides:
+- Parent projection: `_Objects : redirected to composition child ZTR_C_TRANSPORT_OBJECT`
+- Child projection: `_Request : redirected to parent ZTR_C_TRANSPORT_REQUEST` (must exist before the parent's redirect resolves)
+
+Then reactivate both + the Service Definition together, and unpublish/republish the Service Binding.
+
+---
+
+### Object Page navigation to a composition tab feels slow
+
+**Cause:** filtering a to-many association/composition on a *calculated* CDS field (a `CASE` expression, string concatenation, etc.) instead of a raw table column prevents the database from using an index — the whole source table gets scanned/joined before the filter is applied. On a large table (E071 has 40M+ rows system-wide) this can mean seconds instead of milliseconds per navigation.
+
+**Solution:** join the composition/association on the raw, indexed field (e.g. `TRKORR`), not on a computed roll-up field. If the roll-up logic is still needed for display, keep it as a separate calculated column — just don't use it as a join/filter key.
 
 ---
 
