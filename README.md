@@ -607,6 +607,8 @@ Task Management
 
 **Design note:** `ZTR_I_TRANSPORT_OBJECT` is a composition child of `ZTR_I_TRANSPORT_REQUEST` (FASE 3.2) — a CDS to-parent association can only target one parent type. Rather than duplicate the Objects view, `ZTR_I_TRANSPORT_TASK` reaches it with a **plain, non-composition** to-many association instead (this whole service is read-only, no Behavior Definition anywhere, so composition's transactional semantics were never actually needed — a plain association is sufficient and avoids the one-parent constraint entirely).
 
+**Post-FASE 4 UX follow-up (investigated, not pursued):** the two-hop navigation above (Request → Tasks tab → click a Task → its own Objects tab) was the outcome of a deliberate trade-off, not the original ask — a single combined "Objects" tab on the Request showing everything (direct + every Task's objects, grouped) was attempted and reverted after hitting a real ABAP CDS platform limitation (`UNION` views can't reliably act as composition children on this release). See [Troubleshooting → CDS UNION view as a composition child fails to activate](#cds-union-view-as-a-composition-child-fails-to-activate) for the full investigation. The two-hop navigation is the supported approach going forward.
+
 <details>
 <summary><b>📄 ZTR_I_TRANSPORT_TASK (Interface View)</b></summary>
 
@@ -1548,6 +1550,16 @@ Then reactivate both + the Service Definition together, and unpublish/republish 
 **Cause:** filtering a to-many association/composition on a *calculated* CDS field (a `CASE` expression, string concatenation, etc.) instead of a raw table column prevents the database from using an index — the whole source table gets scanned/joined before the filter is applied. On a large table (E071 has 40M+ rows system-wide) this can mean seconds instead of milliseconds per navigation.
 
 **Solution:** join the composition/association on the raw, indexed field (e.g. `TRKORR`), not on a computed roll-up field. If the roll-up logic is still needed for display, keep it as a separate calculated column — just don't use it as a join/filter key.
+
+---
+
+### CDS `UNION` view as a composition child fails to activate
+
+**Symptom:** activating a `composition [0..*] of <union_view> as _X` (or `redirected to composition child` on its projection) fails with contradictory errors depending on what's touched — `"association to parent" is missing` (even though it's declared, in every UNION branch), `"Transactional Projection View must be part of a business object"`, or the same complaint resurfacing after the offending code has already been removed (stale DDIC state from a prior failed activation attempt).
+
+**Investigated (2026-09-19) for a "show all objects — direct + via any Task — in one grouped list on the Request" UX improvement.** `ZTR_I_REQUEST_ALL_OBJECTS`/`ZTR_C_REQUEST_ALL_OBJECTS` were built as a `UNION ALL` of two branches (direct E071 entries, and E071-via-E070-Task entries), each filtering on a **raw, indexed column** — confirmed fast in isolation (~17ms for a Request with 36 objects across 2 Tasks, via `SAPDiagnose(action="cds_sql")` + a direct timed query — see FASE 3.x/4 performance notes above for the pattern this avoids). The blocker was never performance; it was that ABAP CDS on this release does not reliably recognize a `UNION` view's per-branch `association to parent` as satisfying a composition's "child must have a to-parent association" requirement — this matches a publicly reported SAP bug in the same area (union views + RAP composition/BDEF checking, on-premise 2023 SP01). A workaround from another developer's account (associating the *interface* directly to the target's *projection*, skipping `redirected to`) hit the same "must be part of a business object" wall here.
+
+**Resolution:** reverted — deleted the two new objects, restored `ZTR_I_TRANSPORT_REQUEST`/`ZTR_C_TRANSPORT_REQUEST` to the FASE 4 baseline (confirmed via `SAPRead(version="active", force_refresh=true)` and a live query), republished the Service Binding. The two-hop navigation from FASE 4 (Request → Tasks tab → click a Task → its own Objects tab) remains the supported way to see Task-owned objects; a combined single-list view would need either an AMDP/CDS table function (full SQLScript control, more effort) or a newer release where this composition/UNION restriction is lifted.
 
 ---
 
