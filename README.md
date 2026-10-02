@@ -47,8 +47,8 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 3. 🎉 App launches with 35,000+ transport requests!
 ```
 
-**Current Status:** FASE 3.5 Complete ✅ (FASE 3 fully done)  
-**Features:** Color-coded status • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition • Objects tab in the Object Page • Transport Tasks hierarchy (Request → Tasks → Objects) • Inverse search (find a Request by object name) • Objects grouped by Task/Owner
+**Current Status:** FASE 4 Complete ✅ (FASE 3 fully done + Transport Tasks)  
+**Features:** Color-coded status (matching real SE10/domain semantics) • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition • Objects tab in the Object Page • Transport Tasks hierarchy (Request → Tasks → Objects) • Inverse search (find a Request by object name) • Objects grouped by Task/Owner
 
 
 ## 📖 Overview
@@ -223,7 +223,7 @@ Owner Name Resolution
     ├── Owner ID → List Report filter + table column
     └── OwnerName → Object Page header + General Info
 
-📊 Result: Owner shows "JESUSEDM (Edmilson Nascimento Jesus)"
+📊 Result: Owner shows "DEVUSER (John Developer)"
 ```
 
 **Implementation:** New `ZTR_I_USER_NAME` CDS view entity replicating `V_USERNAME` logic using `USR21` + `ADRP` tables. Owner ID is kept for filtering while `OwnerName` provides human-readable display with fallback to User ID when name is unavailable.
@@ -336,7 +336,7 @@ define view entity ZTR_I_TRANSPORT_OBJECT
 
 **Performance note (2026-09-19):** the `_Request` composition originally joined on the *computed* `TransportRequest` field (the `CASE`/`_Task` roll-up above). E071 has 41M+ rows system-wide, and filtering on a calculated column prevents the database from using the index on `TRKORR` — measured at **~2.6s** per Object Page navigation (full scan), versus **~9ms** filtering `TRKORR` directly (a **~280x** difference). Fixed by joining `_Request` on the raw `EntryRequest` (`TRKORR`) instead. Trade-off: the "Objects" tab now shows only objects entered *directly* on the Request — objects recorded under one of its Tasks won't appear until FASE 4 (Transport Tasks) models that hop as its own indexed join, rather than resolving it through this same computed field.
 
-**Known limitation (resolved in FASE 4):** in practice, most real requests keep their objects on Tasks, not directly on the Request (e.g. `S4DK974007` had 0 direct objects, 36 across its 2 Tasks) — so the "Objects" tab often rendered empty. Accepted deliberately at the time: correctness/performance now, coverage later. **FASE 4 (Transport Tasks) was prioritized ahead of FASE 3.5 (Inverse Search) specifically to close this gap** — see that section for how Request → Tasks → Objects is now modeled as its own indexed hop instead of a computed field.
+**Known limitation (resolved in FASE 4):** in practice, most real requests keep their objects on Tasks, not directly on the Request (e.g. `DEVK900200` had 0 direct objects, 36 across its 2 Tasks) — so the "Objects" tab often rendered empty. Accepted deliberately at the time: correctness/performance now, coverage later. **FASE 4 (Transport Tasks) was prioritized ahead of FASE 3.5 (Inverse Search) specifically to close this gap** — see that section for how Request → Tasks → Objects is now modeled as its own indexed hop instead of a computed field.
 
 </details>
 
@@ -571,9 +571,9 @@ Search Configuration
       search result row now shows which Request the object belongs to
 
 📊 Result: "Where is this object?" answered instantly — searching
-   "YTEST" on the TransportObject entity returns EntryRequest =
-   S4DK968784 (where it's physically recorded) and TransportRequest =
-   S4DK968783 (the parent Request), in ~10ms even against E071's 41M rows.
+   "ZTEST_PROGRAM" on the TransportObject entity returns EntryRequest =
+   DEVK900101 (where it's physically recorded) and TransportRequest =
+   DEVK900100 (the parent Request), in ~10ms even against E071's 41M rows.
 ```
 
 **Design note:** this searches the `TransportObject` entity directly (not the `TransportRequest` List Report's own search box). Making the *Request's* search box also match on object names would require aggregating every object name under each request into a searchable text — an operation that would re-scan all of E071 per Request, the exact anti-pattern the FASE 3.x performance fix removed. Filtering `ObjectName` directly (a plain column, not a computed field) stays fast at any scale — measured ~9.6ms for an exact match and ~13.7ms for a prefix search, even across 41M+ rows.
@@ -825,26 +825,47 @@ annotate view ZTR_C_TRANSPORT_TASK with
 
 ---
 
-### **FASE 5: ToC Creator (ZTOC_CREATOR Replacement)** ▫️
+### **FASE 5: ToC Creator (ZTOC_CREATOR Replacement)** ▫️ PLANNED
 
 **Goal:** Automate Transport of Copies creation  
-**Duration:** ~12 hours
+**Duration:** TBD (scope narrowed after design review — see below)
+
+**Design source (2026-10-02):** rather than designing this from scratch, this phase ports the existing `ZTOC_CREATOR` program (`$TMP`, written by a former colleague, iterated on and validated in day-to-day use through September 2026) — its `FORM copy_transport` already calls the exact 3 FMs below with proven parameters/flags. This is a port, not a redesign.
 
 ```
-ToC Automation
-├── ▫️ Multi-selection (checkboxes)
-├── ▫️ RAP Actions (Behavior Definition)
-│   ├── Create ToC
-│   ├── Merge requests
-│   └── Auto-release
-├── ▫️ Business Logic
-│   ├── TR_INSERT_REQUEST_WITH_TASKS
-│   ├── TRINT_MERGE_COMMS
-│   └── TRINT_RELEASE_REQUEST
-└── ▫️ Validation & Feedback
+ToC Automation — scope: "Create ToC" only (ZTOC_CREATOR's TRAN button)
+├── ▫️ 5.1 — Unmanaged BDEF on ZTR_I_TRANSPORT_REQUEST
+│   └── Empty `createToC` action, tested via EML before any UI
+├── ▫️ 5.2 — Action body = direct port of FORM copy_transport
+│   ├── TR_INSERT_REQUEST_WITH_TASKS (iv_type = 'T', iv_target)
+│   ├── TRINT_MERGE_COMMS (merges marked source requests' E071 into the new ToC)
+│   └── TRINT_RELEASE_REQUEST (immediate release — dialog=' ',
+│       without_objects_check/docu/locking = 'X', same flags ZTOC_CREATOR uses)
+├── ▫️ 5.3 — Action parameter: ToC text
+│   └── Default "ToC: <first marked request's description>" (ZTOC_CREATOR's own UX,
+│       changelog #004) — Fiori auto-generates the parameter dialog, replacing
+│       ZTOC_CREATOR's POPUP_GET_VALUES + POPUP_TO_CONFIRM_STEP
+├── ▫️ 5.4 — UI: List Report multi-select + action button
+│   ├── Multi-select checkboxes: native to Fiori Elements, no code (ZTOC_CREATOR's
+│   │   MARK column + SELA/DESA buttons become "Select All" for free)
+│   └── Eligibility restricted to trstatus = 'D' (Modifiable), same as ZTOC_CREATOR's
+│       selection (`trstatus EQ 'D'`) — our FASE 1.6.1 status fix makes this
+│       filter meaningful in the UI too
+├── ▫️ 5.5 — Simulation-first testing
+│   └── Dry-run via the FMs' own iv_simulation flags before enabling for real
+└── ▫️ /SDF/TRCHECK reminder (not a call)
+    └── After a successful ToC creation, show a text reminder to run
+        `/SDF/TRCHECK` (SAP-standard, package /SDF/STPI_6X — cross-system downgrade/
+        consistency checks) and SCC1 before importing — matching the
+        project's own pre-transport checklist. No FM call: /SDF/TEAP_* are
+        SAP-internal, RFC-based (source/target systems), with their own
+        authorization objects — out of scope to invoke programmatically.
 
-📊 Result: One-click ToC creation in Fiori
+📊 Result: select Modifiable requests in the List Report → "Create ToC" →
+   fill in a text → get a released ToC, same outcome as ZTOC_CREATOR's TRAN
 ```
+
+**Explicitly out of scope for FASE 5:** ZTOC_CREATOR's `CRIM` button ("Create ToC and Import") — it drives `TMS_UI_IMPORT_TR_REQUEST`, a nested chain of SAPGUI dialogs (client selection popup, progress indicators, import-queue polling) that isn't naturally action-shaped for a stateless OData/Fiori Elements action. Deferred to a later phase, if ever — `ZTOC_CREATOR` itself remains the supported way to create-and-import in one step until then.
 
 > **Note:** `ZTOC_CREATOR` is a pseudo transaction name representing a custom Transport of Copies creation tool.
 
@@ -890,6 +911,7 @@ Action Library
 | **1.5.7** | 2026-09-19 | ✅ FASE 3.x - Bugfix: "Objects" facet was silently empty — missing `redirected to composition child`/`redirected to parent` |
 | **1.5.8** | 2026-09-19 | ✅ FASE 3.x - Perf: `_Request` join moved off a calculated field (~2.6s → ~9ms); Objects tab now scoped to direct entries only |
 | **1.6.0** | 2026-09-19 | ✅ FASE 4 - Transport Tasks (Request → Tasks → Objects hierarchy) |
+| **1.6.1** | 2026-10-02 | ✅ Bugfix - Status/Type text read dynamically from `_StatusVH`/`_TypeVH` instead of hand-typed `CASE`, to match SE10 and never drift again |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
 
 ---
@@ -1039,6 +1061,38 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
 where
   strkorr = '' // Only ORDERs (no TASKs)
 ```
+
+**Bugfix (2026-10-02):** `StatusText`/`RequestTypeText` were hand-typed `CASE` statements that had drifted from the real SAP domain texts (`TRSTATUS`/`TRFUNCTION` in `DD07T`) — e.g. `D` showed "Released" when the domain says **Modifiable**, and `R` showed "Released with Errors" when the domain says **Released** (there's no "error" status in this domain at all). `StatusCriticality` (the header/table color) inherited the same inversion. Found by cross-checking against `DD07T`, the same source `ZTR_I_TRANSPORT_STATUS_VH`/`ZTR_I_TRANSPORT_TYPE_VH` already read for the filter dropdowns — which is why the *filters* always showed the correct text and only the *list/header display* was wrong. Confirmed live: `DEVK900100` (`TRSTATUS = 'D'`) used to display "Released" ✅ green — it was actually **Modifiable**.
+
+Fixed by replacing the hand-typed text with a dynamic lookup through the existing `_StatusVH`/`_TypeVH` associations — the same Value Help entities the filters already use, so the displayed text can never diverge from SE10/the real domain again, including across languages:
+
+```abap
+// Request Type Description - read from the domain (DD07T via _TypeVH)
+case when _TypeVH.TypeText is not initial
+  then _TypeVH.TypeText
+  else trfunction
+end           as RequestTypeText,
+
+// Status Description - read from the domain (DD07T via _StatusVH)
+case when _StatusVH.StatusText is not initial
+  then _StatusVH.StatusText
+  else trstatus
+end           as StatusText,
+
+// Status Criticality - color isn't a domain attribute, stays curated,
+// now matching the real SE10 semantics
+case trstatus
+  when 'R' then 3  // Released = Green (Positive)
+  when 'N' then 3  // Released (import protection) = Green (Positive)
+  when 'D' then 2  // Modifiable = Yellow (Critical)
+  when 'L' then 2  // Modifiable, Protected = Yellow (Critical)
+  when 'O' then 2  // Release Started = Yellow (Critical)
+  when 'P' then 2  // Release Preparation = Yellow (Critical)
+  else 0           // Others = Neutral
+end           as StatusCriticality,
+```
+
+`ZTR_I_TRANSPORT_TASK` got the same fix, plus the two associations it was missing (`_StatusVH`, `_TypeVH`).
 
 </details>
 
@@ -1405,7 +1459,7 @@ where
   as4user <> ''
 ```
 
-**Bugfix (2026-09-19):** the original version set `UserName` to a copy of `as4user`, so the Owner Value Help dialog showed the same code twice (e.g. `JESUSEDM (JESUSEDM)`) instead of a real name. Fixed by resolving `UserName` through `ZTR_I_USER_NAME` (the same USR21+ADRP lookup used for `OwnerName` in FASE 2.4), with a fallback to the User ID when no name is found.
+**Bugfix (2026-09-19):** the original version set `UserName` to a copy of `as4user`, so the Owner Value Help dialog showed the same code twice (e.g. `DEVUSER (DEVUSER)`) instead of a real name. Fixed by resolving `UserName` through `ZTR_I_USER_NAME` (the same USR21+ADRP lookup used for `OwnerName` in FASE 2.4), with a fallback to the User ID when no name is found.
 
 </details>
 
@@ -1630,7 +1684,7 @@ SOFTWARE.
 ---
 
 **Last Updated:** September 2026  
-**Current Phase:** FASE 3.5 Complete ✅ — FASE 3 fully done  
+**Current Phase:** FASE 4 Complete ✅ + Bugfix 1.6.1 (Status/Type text)  
 **Next Milestone:** FASE 5 - ToC Creator (Transport of Copies automation)
 
 ---
