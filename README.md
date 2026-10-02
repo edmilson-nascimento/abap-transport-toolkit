@@ -827,45 +827,103 @@ annotate view ZTR_C_TRANSPORT_TASK with
 
 ### **FASE 5: ToC Creator (ZTOC_CREATOR Replacement)** ▫️ PLANNED
 
-**Goal:** Automate Transport of Copies creation  
-**Duration:** TBD (scope narrowed after design review — see below)
+**Goal:** Automate Transport of Copies creation, with pre-transport checks built in  
+**Duration:** TBD (redesigned after design review — see below)
 
-**Design source (2026-10-02):** rather than designing this from scratch, this phase ports the existing `ZTOC_CREATOR` program (`$TMP`, written by a former colleague, iterated on and validated in day-to-day use through September 2026) — its `FORM copy_transport` already calls the exact 3 FMs below with proven parameters/flags. This is a port, not a redesign.
+**Design source (2026-10-02):** the ToC creation itself ports the existing `ZTOC_CREATOR` program (`$TMP`, written by a former colleague, validated in day-to-day use through September 2026). Its `FORM copy_transport` already calls the 3 FMs below with proven parameters/flags. What's new compared to `ZTOC_CREATOR` is a **pre-check layer** inspired by `/SDF/TRCHECK`, so problems surface *before* the ToC exists instead of during the import.
+
+#### Decided during design review (2026-10-02)
+
+| Decision | Choice | Why |
+|---|---|---|
+| Pre-checks before ToC | ✅ Yes, 3 levels (local / target system / real import) | `ZTOC_CREATOR` only creates; missing dependencies and downgrades were discovered at import time |
+| Buttons | One per check level + "Create ToC" | Each level has a different cost and failure mode (local ≈ 1s, ATC slower, target system needs RFC) |
+| Where results live | **Nowhere — stateless.** Shown as messages, gone when the app is closed | No Z tables, no stored data. OData/RAP is stateless anyway, so a "remembered" check result would need persistence |
+| How "Create ToC" is gated | It **re-runs Level 1 + Level 2 in the same request** and only creates if they pass | Guarantees the checks passed *at that instant*. No stale results, no fingerprinting, nothing to store |
+| Warnings (🟡) | Allowed, only with an explicit "I accept the warnings" checkbox in the action dialog | Warnings are informative, errors are blocking |
+| A check that couldn't run (e.g. RFC down) | **Blocks**, same as 🔴 | A check that didn't run is not a pass |
+| ATC in the gate | Optional (checkbox in the Level 1 dialog), not part of the automatic gate by default | Keeps "Create ToC" fast |
+| Immediate release | Optional action parameter, **default off** | `ZTOC_CREATOR` always releases; here it's an explicit choice |
+| Background execution | **TBD.** Only the principle is fixed now: checks and ToC creation live in one class that doesn't depend on the UI, so they can run online *or* in background | Large selections (many TRs/objects, ATC) may exceed an online request. Open point: where results go when there's no screen, since that conflicts with "stores nothing" |
+
+#### Flow
 
 ```
-ToC Automation — scope: "Create ToC" only (ZTOC_CREATOR's TRAN button)
-├── ▫️ 5.1 — Unmanaged BDEF on ZTR_I_TRANSPORT_REQUEST
-│   └── Empty `createToC` action, tested via EML before any UI
-├── ▫️ 5.2 — Action body = direct port of FORM copy_transport
+select TRs (List Report, multi-select, Modifiable only)
+ ├─ [Level 1]    → shows result (messages), stores nothing
+ ├─ [Level 2]    → shows result (messages), stores nothing
+ └─ [Create ToC] → re-runs Level 1 + Level 2, in the same request
+                    ├─ 🔴 or check not executed → blocks, shows reasons
+                    ├─ 🟡 → requires ☑ "I accept the warnings" in the dialog
+                    └─ 🟢 → creates the ToC
+```
+
+Every check runs on the selected requests **plus their tasks** (expanded via `E070.STRKORR`). For a Modifiable request the objects live in the tasks, not the request itself.
+
+#### What each level checks
+
+| Level | Checks | Catches |
+|---|---|---|
+| **1 — Local** (dev system, read-only, no RFC) | Inactive objects (`DWINACTIV`) · same object in another open TR · package / transport layer · request structure (empty tasks, no objects) · deleted objects · customizing keys (`E071K`) · ☐ ATC (optional) | Inactive versions going out, parallel changes, `$TMP`/local objects, syntax & quality issues |
+| **2 — Target system** (QA, via RFC, read-only) | `/SDF/OI_CHECK` and `/SDF/TEAP_ENVI_ANA` (the engines behind `/SDF/TRCHECK`) · dev × QA version comparison · "import first": which TR contains a missing dependency | Missing dependencies in QA, QA holding changes that dev doesn't have, sequencing problems, request already in QA |
+| **3 — Real import** (after the ToC is released) | Test import into a sandbox/test system | Generation/activation errors that only a real import reveals |
+
+**What no pre-check can catch:** errors that only show up when the target system actually generates/activates the objects (Level 3 covers that, after the ToC exists), plus customizing/data issues and authorizations in the target.
+
+#### Sub-phases
+
+```
+ToC Automation — FASE 5
+├── ▫️ 5.0 — Feasibility spike (writes nothing)
+│   ├── Unmanaged BDEF on the existing root, multi-select action with parameters
+│   ├── ATC API callable from a class · RFC call inside a RAP action
+│   ├── RFC destination to QA + ST-PI level for /SDF/OI_CHECK
+│   └── FMs/APIs marked "to confirm" in the analysis
+├── ▫️ 5.1 — Level 1 button (local checks + optional ATC) — read-only
+├── ▫️ 5.2 — Level 2 button (target-system checks) — read-only
+├── ▫️ 5.3 — Create ToC (first write)
+│   ├── Gate: re-run Level 1 + 2, block on 🔴, confirm 🟡
+│   ├── Feature control: Modifiable requests only · S_TRANSPRT authorization
+│   ├── Action parameter: ToC text, default "ToC: <first selected request's description>"
 │   ├── TR_INSERT_REQUEST_WITH_TASKS (iv_type = 'T', iv_target)
-│   ├── TRINT_MERGE_COMMS (merges marked source requests' E071 into the new ToC)
-│   └── TRINT_RELEASE_REQUEST (immediate release — dialog=' ',
-│       without_objects_check/docu/locking = 'X', same flags ZTOC_CREATOR uses)
-├── ▫️ 5.3 — Action parameter: ToC text
-│   └── Default "ToC: <first marked request's description>" (ZTOC_CREATOR's own UX,
-│       changelog #004) — Fiori auto-generates the parameter dialog, replacing
-│       ZTOC_CREATOR's POPUP_GET_VALUES + POPUP_TO_CONFIRM_STEP
-├── ▫️ 5.4 — UI: List Report multi-select + action button
-│   ├── Multi-select checkboxes: native to Fiori Elements, no code (ZTOC_CREATOR's
-│   │   MARK column + SELA/DESA buttons become "Select All" for free)
-│   └── Eligibility restricted to trstatus = 'D' (Modifiable), same as ZTOC_CREATOR's
-│       selection (`trstatus EQ 'D'`) — our FASE 1.6.1 status fix makes this
-│       filter meaningful in the UI too
-├── ▫️ 5.5 — Simulation-first testing
-│   └── Dry-run via the FMs' own iv_simulation flags before enabling for real
-└── ▫️ /SDF/TRCHECK reminder (not a call)
-    └── After a successful ToC creation, show a text reminder to run
-        `/SDF/TRCHECK` (SAP-standard, package /SDF/STPI_6X — cross-system downgrade/
-        consistency checks) and SCC1 before importing — matching the
-        project's own pre-transport checklist. No FM call: /SDF/TEAP_* are
-        SAP-internal, RFC-based (source/target systems), with their own
-        authorization objects — out of scope to invoke programmatically.
+│   ├── TRINT_MERGE_COMMS (selected requests + their tasks)
+│   └── Runs asynchronously via bgPF — the legacy FMs COMMIT internally,
+│       which isn't allowed inside a RAP handler
+├── ▫️ 5.4 — Optional release
+│   └── "Release immediately" parameter (default off) → TRINT_RELEASE_REQUEST
+│       with the same flags ZTOC_CREATOR uses
+├── ▫️ 5.5 — Release multiple TRs (asynchronous)
+│   ├── Reuses 5.4's TRINT_RELEASE_REQUEST call + 5.3's bgPF setup,
+│   │   one background unit per TR so one failure doesn't block the others
+│   ├── Order: tasks first, then the request (same as SE10)
+│   ├── Gate: re-run Level 1 + 2 before releasing, same as "Create ToC"
+│   ├── Confirmation dialog: "N requests will be released and enter the QA import queue"
+│   └── Progress = status changing Modifiable → Released in the List Report (nothing
+│       stored); error reporting uses the same channel as background mode (5.7)
+├── ▫️ 5.6 — Level 3 button on the ToC itself (released ToC → test import)
+│   └── Depends on a sandbox/test system in the transport route (checked in 5.0)
+├── ▫️ 5.7 — Background mode — TBD
+│   └── "Run in background" option for checks + ToC creation on large selections;
+│       result channel (application log, notification, job spool…) to be decided
+├── ▫️ 5.8 — Extras
+│   └── Downgrade check (/SDF/TEAP_DOWNGRADE_PROTECT — requests only, writes to
+│       /SDF tables), ABAP Unit, QA import-queue check
+└── ▫️ 5.9 — Create ToC + Import (ZTOC_CREATOR's CRIM button) — TBD
+    └── Idea under evaluation. ZTOC_CREATOR remains the way to create-and-import
+        in one step until this is decided
 
-📊 Result: select Modifiable requests in the List Report → "Create ToC" →
-   fill in a text → get a released ToC, same outcome as ZTOC_CREATOR's TRAN
+📊 Result: select Modifiable requests → check them (Level 1, Level 2) →
+   "Create ToC" re-checks and creates only if everything is OK →
+   optionally release the ToC or the requests themselves, in bulk
 ```
 
-**Explicitly out of scope for FASE 5:** ZTOC_CREATOR's `CRIM` button ("Create ToC and Import") — it drives `TMS_UI_IMPORT_TR_REQUEST`, a nested chain of SAPGUI dialogs (client selection popup, progress indicators, import-queue polling) that isn't naturally action-shaped for a stateless OData/Fiori Elements action. Deferred to a later phase, if ever — `ZTOC_CREATOR` itself remains the supported way to create-and-import in one step until then.
+> **Safety rule:** 5.0–5.2 never modify transport requests, so they can be validated on a real system with near-zero risk. Each phase from 5.3 onwards (the first one that writes) is enabled only after explicit confirmation.
+
+> **Why 5.5 comes after 5.4:** releasing a ToC only produces a copy, but releasing a regular request **exports it into the QA import queue, which can't be undone**. Confidence is built on the lower-risk release first.
+
+> **Caveat:** the `/SDF/*` function modules are SAP-internal (no released API contract) and can change with an ST-PI upgrade. They will be wrapped in a single check class so the rest of the toolkit doesn't depend on them directly.
+
+**TBD — Create ToC + Import (5.9):** ZTOC_CREATOR's `CRIM` button drives `TMS_UI_IMPORT_TR_REQUEST`, a nested chain of SAPGUI dialogs (client selection popup, progress indicators, import-queue polling) that isn't naturally action-shaped for a stateless OData/Fiori Elements action. Left as the last item of FASE 5 while the idea is evaluated, with no design commitment yet. Background mode (5.7) may be relevant here, since an import isn't an instant operation.
 
 > **Note:** `ZTOC_CREATOR` is a pseudo transaction name representing a custom Transport of Copies creation tool.
 
@@ -878,16 +936,16 @@ ToC Automation — scope: "Create ToC" only (ZTOC_CREATOR's TRAN button)
 
 ```
 Action Library
-├── ▫️ Release request (single-click)
 ├── ▫️ Add to existing ToC
 ├── ▫️ View in SE09/SE10 (deep link)
 ├── ▫️ Export to Excel
 ├── ▫️ Compare requests
-├── ▫️ Check transport conflicts (ZCHECK_TRANSPORT_CONFLICTS)
-└── ▫️ Batch operations
+└── ▫️ Check transport conflicts (ZCHECK_TRANSPORT_CONFLICTS)
 
 📊 Result: Complete transport management suite
 ```
+
+> **Moved to FASE 5 (2026-10-02):** "Release request (single-click)" and "Batch operations" are now covered by FASE 5.5 (release multiple TRs, asynchronous). "Check transport conflicts" partly overlaps with FASE 5's Level 1/2 checks, so it should be reviewed once FASE 5 is done.
 
 > **Note:** `ZCHECK_TRANSPORT_CONFLICTS` is a pseudo transaction name representing a custom tool for validating transport conflicts before import.
 
@@ -912,7 +970,7 @@ Action Library
 | **1.5.8** | 2026-09-19 | ✅ FASE 3.x - Perf: `_Request` join moved off a calculated field (~2.6s → ~9ms); Objects tab now scoped to direct entries only |
 | **1.6.0** | 2026-09-19 | ✅ FASE 4 - Transport Tasks (Request → Tasks → Objects hierarchy) |
 | **1.6.1** | 2026-10-02 | ✅ Bugfix - Status/Type text read dynamically from `_StatusVH`/`_TypeVH` instead of hand-typed `CASE`, to match SE10 and never drift again |
-| **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator |
+| **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator with stateless pre-checks (Level 1 / 2 / 3) |
 
 ---
 
