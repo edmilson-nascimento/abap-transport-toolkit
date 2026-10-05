@@ -1,0 +1,39 @@
+@Metadata.layer: #CORE
+@UI.presentationVariant: [{
+  sortOrder: [
+    { by: 'EntryRequest', direction: #ASC },
+    { by: 'TaskOwner', direction: #ASC }
+  ],
+  groupBy: ['EntryRequest', 'TaskOwner']
+}]
+annotate view ZTR_C_TRANSPORT_OBJECT with
+{
+  @UI: {
+    lineItem: [{ position: 5, importance: #HIGH, label: 'Task/Request' }]
+  }
+  EntryRequest;
+
+  @UI.lineItem: [{ position: 6, importance: #HIGH, label: 'Parent Request' }]
+  TransportRequest;
+
+  @UI.lineItem: [{ position: 10, importance: #HIGH, label: 'Type' }]
+  ObjectTypeText;
+
+  @UI.lineItem: [{ position: 20, importance: #HIGH, label: 'Object Name' }]
+  ObjectName;
+
+  @UI.lineItem: [{ position: 30, importance: #MEDIUM, label: 'Function' }]
+  ObjectFunction;
+
+  @UI.lineItem: [{ position: 40, importance: #MEDIUM, label: 'Task Owner' }]
+  TaskOwner;
+
+  @UI.hidden: true
+  EntryPosition;
+  @UI.hidden: true
+  ProgramId;
+  @UI.hidden: true
+  ObjectType;
+  @UI.hidden: true
+  LockFlag;
+}

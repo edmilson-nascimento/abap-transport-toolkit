@@ -1,0 +1,75 @@
+@Metadata.layer: #CORE
+@UI: {
+  headerInfo: {
+    typeName: 'Transport Task',
+    typeNamePlural: 'Transport Tasks',
+    title: { type: #STANDARD, value: 'TaskRequest' },
+    description: { value: 'Description' }
+  }
+}
+
+annotate view ZTR_C_TRANSPORT_TASK with
+{
+  @UI: {
+    facet: [
+      {
+        id: 'GeneralInfo',
+        type: #IDENTIFICATION_REFERENCE,
+        label: 'General Information',
+        position: 10
+      },
+      {
+        id: 'ObjectsTab',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Objects',
+        position: 20,
+        targetElement: '_Objects'
+      }
+    ],
+    lineItem: [{ position: 10, importance: #HIGH }],
+    identification: [{ position: 10 }]
+  }
+  TaskRequest;
+
+  @UI: {
+    lineItem: [{ position: 20, importance: #HIGH, label: 'Type' }],
+    identification: [{ position: 20, label: 'Type' }]
+  }
+  TaskTypeText;
+
+  @UI: {
+    lineItem: [{ position: 30, importance: #HIGH, label: 'Status', criticality: 'StatusCriticality' }],
+    identification: [{ position: 30, label: 'Status', criticality: 'StatusCriticality' }]
+  }
+  StatusText;
+
+  @UI: {
+    lineItem: [{ position: 40, importance: #HIGH, label: 'Owner' }],
+    identification: [{ position: 40, label: 'Owner' }]
+  }
+  OwnerName;
+
+  @UI: {
+    lineItem: [{ position: 50, importance: #MEDIUM }],
+    identification: [{ position: 50 }]
+  }
+  Description;
+
+  @UI.identification: [{ position: 60, label: 'Creation Date' }]
+  CreationDate;
+
+  @UI.identification: [{ position: 70, label: 'Creation Time' }]
+  CreationTime;
+
+  @UI.hidden: true
+  ParentRequest;
+  @UI.hidden: true
+  TaskType;
+  @UI.hidden: true
+  TaskStatus;
+  @UI.hidden: true
+  StatusCriticality;
+  @UI.hidden: true
+  Owner;
+}

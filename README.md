@@ -1008,6 +1008,8 @@ Package: ZTRANSPORT_TOOLKIT
 
 ## 📝 Complete Source Code
 
+> **Source files:** the current active source of every object is in [`src/`](src/), one file per object, named with abapGit's file conventions (`*.ddls.asddls`, `*.ddlx.asddlxs`, `*.srvd.srvdsrv`). Only the source is exported: no SAP metadata (author, change dates, system info). The service binding has no source and is created in ADT (see below). If the snippets in this section ever differ from `src/`, `src/` is the reference.
+
 <details>
 <summary><b>📄 ZTR_I_TRANSPORT_REQUEST (Interface View)</b></summary>
 

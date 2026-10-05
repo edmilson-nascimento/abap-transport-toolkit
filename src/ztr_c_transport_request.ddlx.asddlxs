@@ -1,0 +1,157 @@
+@Metadata.layer: #CORE
+@UI: {
+  headerInfo: {
+    typeName: 'Transport Request',
+    typeNamePlural: 'Transport Requests',
+    title: { type: #STANDARD, value: 'TransportRequest' },
+    description: { value: 'Description' }
+  }
+}
+
+annotate view ZTR_C_TRANSPORT_REQUEST with
+{
+
+  // FACETS - Object Page structure
+  @UI: {
+    facet: [
+      // Header Data Points
+      {
+        id: 'HeaderStatus',
+        purpose: #HEADER,
+        type: #DATAPOINT_REFERENCE,
+        targetQualifier: 'StatusData',
+        position: 10
+      },
+      {
+        id: 'HeaderType',
+        purpose: #HEADER,
+        type: #DATAPOINT_REFERENCE,
+        targetQualifier: 'TypeData',
+        position: 20
+      },
+      {
+        id: 'HeaderOwner',
+        purpose: #HEADER,
+        type: #DATAPOINT_REFERENCE,
+        targetQualifier: 'OwnerData',
+        position: 30
+      },
+      // Body Facets
+      {
+        id: 'GeneralInfo',
+        type: #IDENTIFICATION_REFERENCE,
+        label: 'General Information',
+        position: 10
+      },
+      {
+        id: 'TechnicalDetails',
+        type: #FIELDGROUP_REFERENCE,
+        label: 'Technical Details',
+        targetQualifier: 'TechnicalDetails',
+        position: 20
+      },
+      // Objects Tab (FASE 3.3) - direct only, temporary until combined view works
+      {
+        id: 'ObjectsTab',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Objects',
+        position: 30,
+        targetElement: '_Objects'
+      },
+      // Tasks Tab (FASE 4)
+      {
+        id: 'TasksTab',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Tasks',
+        position: 40,
+        targetElement: '_Tasks'
+      }
+    ],
+    // List Report & General Information
+    lineItem: [{ position: 10, importance: #HIGH }],
+    selectionField: [{ position: 10 }],
+    identification: [{ position: 10 }]
+  }
+  TransportRequest;
+
+  // Filter with dropdown (hidden in table)
+  @UI.selectionField: [{ position: 15 }]
+  RequestType;
+
+  // Table + General Info (pos 40) + Header DataPoint
+  @UI: {
+    lineItem: [{ position: 20, importance: #HIGH, label: 'Request Type' }],
+    identification: [{ position: 40, label: 'Request Type' }],
+    dataPoint: { qualifier: 'TypeData', title: 'Request Type' }
+  }
+  RequestTypeText;
+
+  // Filter with dropdown (hidden in table)
+  @UI.selectionField: [{ position: 25 }]
+  RequestStatus;
+
+  // Table + General Info (pos 30) + Header DataPoint with criticality
+  @UI: {
+    lineItem: [{ position: 30, importance: #HIGH, label: 'Status', criticality: 'StatusCriticality' }],
+    identification: [{ position: 30, label: 'Status', criticality: 'StatusCriticality' }],
+    dataPoint: { qualifier: 'StatusData', title: 'Status', criticality: 'StatusCriticality' }
+  }
+  StatusText;
+
+  // Table + Filter + Technical Details (pos 10)
+  @UI: {
+    lineItem: [{ position: 40, importance: #MEDIUM }],
+    selectionField: [{ position: 40 }],
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 10, label: 'Target System' }]
+  }
+  TargetSystem;
+
+  // Table + Filter (Owner ID for filtering)
+  @UI: {
+    lineItem: [{ position: 50, importance: #MEDIUM }],
+    selectionField: [{ position: 50 }]
+  }
+  Owner;
+
+  // General Info (pos 50) + Header DataPoint (Owner full name)
+  @UI: {
+    identification: [{ position: 50, label: 'Owner' }],
+    dataPoint: { qualifier: 'OwnerData', title: 'Owner' }
+  }
+  OwnerName;
+
+  // Table + Technical Details (pos 30)
+  @UI: {
+    lineItem: [{ position: 60, importance: #LOW }],
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 30, label: 'Creation Date' }]
+  }
+  CreationDate;
+
+  // Table + Technical Details (pos 40)
+  @UI: {
+    lineItem: [{ position: 70, importance: #LOW }],
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 40, label: 'Creation Time' }]
+  }
+  CreationTime;
+
+  // Table + Technical Details (pos 20)
+  @UI: {
+    lineItem: [{ position: 80, importance: #LOW }],
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 20, label: 'Parent Request' }]
+  }
+  ParentRequest;
+
+  // Table + Filter + General Info (pos 20)
+  @UI: {
+    lineItem: [{ position: 90, importance: #HIGH }],
+    selectionField: [{ position: 60 }],
+    identification: [{ position: 20 }]
+  }
+  Description;
+
+  @UI.hidden: true
+  StatusCriticality;
+
+}
