@@ -974,6 +974,33 @@ Action Library
 
 ---
 
+## 🚢 Deployment (planned)
+
+Until now the app has only run in ADT's Fiori Elements preview, which is a development tool. A deployed app is a generated Fiori Elements project, uploaded to the ABAP system as a BSP application.
+
+**Decided before the first deploy (2026-10-06/07):**
+
+| # | Topic | Decision |
+|---|---|---|
+| 1 | Service names | Definition `ZTR_UI_TRANSPORT_REQUEST`, binding `ZTR_UI_TRANSPORT_REQ_O4`, fixed before deploy because the app is bound to the service name |
+| 2 | OData version | **V4**, published via `/IWFND/V4_ADMIN`. V2 and the unpublished early V4 binding were removed |
+| 3 | Who can open the app | Role-based access to the service, same audience as SE09/SE10, no row-level DCL (see [Requirements](#-requirements)) |
+| 4 | System URL in the repo | **Never committed.** See below |
+| 5 | BSP application name | `ZTR_TOOLKIT` (max. 15 characters) |
+| 6 | Package / request | `ZTRANSPORT_TOOLKIT`, same workbench request as the rest of the toolkit |
+| 7 | Scope | Development system only, opened by URL. No Launchpad tile/catalog yet. Not transported (see the V4 publication status above) |
+
+**Keeping the system URL out of the public repo:**
+- The app's source (manifest, annotations, i18n) goes into `app/`.
+- The files that contain the backend URL (`ui5.yaml`, `ui5-local.yaml`, `ui5-deploy.yaml`, `.env`) and the build output (`dist/`) are excluded locally via `.git/info/exclude`, **not** `.gitignore`, so the public repo doesn't even reveal that they exist.
+- The repo carries `*.example.yaml` copies with `https://<sap-host>:<port>` as a placeholder.
+- `manifest.json` only uses a relative service path (`/sap/opu/odata4/...`), so it's safe to commit.
+- Before every commit, scan for hostname, port, user IDs and request numbers.
+
+**When a redeploy is needed:** only for changes to the app itself (manifest, new pages, UI extensions). Backend changes (CDS views, annotations, actions, behavior) show up without a redeploy, at most after clearing the Gateway metadata cache or the browser cache.
+
+---
+
 ## 📦 Current Objects
 
 ```
@@ -1591,7 +1618,19 @@ In OData V4, services are published as **service groups**. For a RAP binding, th
 
 **Transport:** the binding, its V4 service group object and its authorization defaults travel in the **workbench** request as usual. The **publication** itself is client-specific Gateway customizing, and **`/IWFND/V4_ADMIN` may publish without recording it in any request, even when the client has automatic recording on**. This was verified on this project's system: no request contained the group. For each follow-on system (QA, production), choose one:
 1. **Publish again manually** in `/IWFND/V4_ADMIN` in that system, using the same steps.
-2. **Ship it in a customizing request** with two entries for the group: the publication (view `/IWFND/V_V4_MSGR`, key `<client><group>`) and its system-alias assignment (view `/IWFND/V_V4_RSAG`, key `<client><group>…LOCAL`). This is how other V4 services on the same system were transported.
+2. **Ship it in a customizing request** with two entries for the group: the publication (view `/IWFND/V_V4_MSGR`, key `<client><group>`) and its system-alias assignment (view `/IWFND/V_V4_RSAG`, key `<client><group>…LOCAL`). This is how other V4 services on the same system were transported. It has to be a **customizing** request, separate from the toolkit's workbench request, because the entries are client-specific customizing.
+
+**How to record the publication in a customizing request (option 2):**
+1. Transaction **SM30** → view **`/IWFND/V_V4_MSGR`** → Maintain (or Display).
+2. Select the line for the service group (e.g. `ZTR_UI_TRANSPORT_REQ_O4`).
+3. Menu **Table View → Transport** → create or choose a customizing request → include the selected entry. This also includes the group's text entry.
+4. Repeat for view **`/IWFND/V_V4_RSAG`**: the line for the group with system alias `LOCAL`, into the **same** request.
+5. Check the request in SE10: it should contain `/IWFND/V_V4_MSGR` and `/IWFND/V_V4_RSAG`, both with the group's key.
+6. Release it **together with** the toolkit's workbench request, and import the workbench request first.
+
+If SM30 doesn't allow opening the views, the same entries can be added manually to the request's object list in SE10 (`R3TR TABU` for `/IWFND/C_V4_MSGR`, `/IWFND/C_V4_MSGT` and `/IWFND/C_V4_RSAG`, keyed by client + group ID).
+
+> **Status (2026-10-07): not done.** The toolkit is a personal/study project and is **not transported** beyond the development system. So the V4 publication exists only there, in no request, and the toolkit's workbench request is intentionally kept unreleased. If the project is ever transported, follow option 1 or 2 above.
 
 **Service URL format (V4):** `/sap/opu/odata4/sap/<binding>/srvd/sap/<service_definition>/0001/`, unlike V2's `/sap/opu/odata/sap/<binding>`.
 
@@ -1628,7 +1667,19 @@ In OData V4, services are published as **service groups**. For a RAP binding, th
 **Authorizations:**
 - `S_DEVELOP` (CDS creation)
 - `S_CTS_ADMI` (transport access)
-- Service publication rights
+- Service publication rights (`/IWFND/V4_ADMIN` for the OData V4 service group)
+
+**App access (decided 2026-10-07, before the first deploy):**
+
+| Topic | Decision |
+|---|---|
+| Who can open the app | Only users with a role that grants the OData service (`S_SERVICE`). Target audience: the same people who already use SE09/SE10 (developers) |
+| Row-level restrictions | **None.** The CDS views keep `@AccessControl.authorizationCheck: #NOT_REQUIRED`, with no DCL |
+| Why | The app is read-only and shows the same data SE09/SE10 already shows to that audience: all requests, their descriptions and owner names. Filtering to "own requests only" would defeat the purpose of building ToCs from the team's requests |
+| Not chosen | (B) DCL "owner = current user": too restrictive. (C) DCL based on `S_TRANSPRT`: belongs with the write actions |
+| Revisit in | **FASE 5.3+**, when the first write action arrives: `S_TRANSPRT` checks in the behavior implementation, as planned there |
+
+> Since the app contains user names (personal data), widening the audience beyond developers needs a new decision. Don't just add the service to a broad role.
 
 ---
 
