@@ -1566,7 +1566,27 @@ define service ZTR_UI_TRANSPORT_REQUEST {
 4. Activate → **Publish** (mandatory!)
 5. Click Preview → Select entity → Test
 
-> **Note:** this project uses OData V2 only. V4 would need additional system configuration, and for this app the difference is small.
+> **Note:** the project started on OData V2 because ADT's Publish button fails for V4 on the development system (see [Troubleshooting](#service-wont-publish)). V4 does work there, but it has to be published manually, as described below.
+
+### Publishing an OData V4 binding (via `/IWFND/V4_ADMIN`)
+
+In OData V4, services are published as **service groups**. For a RAP binding, the group ID is the binding name. When ADT's **Publish** fails, do it in SAP GUI:
+
+1. Create and **activate** the binding in ADT (type **OData V4 - UI**). Don't click Publish.
+2. Run transaction **`/IWFND/V4_ADMIN`** → **Publish Service Groups**.
+3. **System Alias:** `LOCAL`.
+4. **Service Group ID:** the binding name → **Get Service Groups**.
+5. Select the line → **Publish Service Groups**.
+6. If prompted: a description, the package, and a **customizing transport request**.
+7. Back in ADT, refresh the binding: it now shows as published, and **Preview** works.
+
+**Prerequisites:**
+- System alias `LOCAL` configured for V4 (check: `/IWFND/V4_ADMIN` → *Routing Configuration*).
+- Gateway administrator authorization to publish service groups.
+
+**Transport:** the service group publication is client-specific customizing. In each follow-on system (QA, production), it has to be published again in `/IWFND/V4_ADMIN`, or come in the customizing request created in step 6. The binding itself travels in the workbench request as usual.
+
+**Service URL format (V4):** `/sap/opu/odata4/sap/<binding>/srvd/sap/<service_definition>/0001/`, unlike V2's `/sap/opu/odata/sap/<binding>`.
 
 </details>
 
@@ -1609,12 +1629,15 @@ define service ZTR_UI_TRANSPORT_REQUEST {
 
 ### Service won't publish
 
-**Error:** `Publishing in Customizing Client not allowed`
+**Error:** `Publishing in Customizing Client not allowed` (or `Transport request not available and client is set to auto-record on` / `No change allowed on this client`) when clicking **Publish** on an **OData V4** binding in ADT
+
+**Cause:** publishing a V4 binding creates client-specific Gateway customizing (the service group publication). ADT's "publish locally" can't handle the client's change/recording settings, so it fails, even though V4 itself works on the system.
 
 **Solution:**
 1. Ensure development client (not 000)
-2. Use OData V2 - UI (not V4)
-3. Check service publication authorization
+2. **V4:** publish the service group manually in `/IWFND/V4_ADMIN` instead of ADT (see [Publishing an OData V4 binding](#publishing-an-odata-v4-binding-via-iwfndv4_admin))
+3. **V2:** ADT's Publish works directly. This was the original workaround (FASE 1), which is why the project started on V2
+4. Check service publication authorization (Gateway administrator role)
 
 ---
 
