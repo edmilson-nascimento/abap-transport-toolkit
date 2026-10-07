@@ -42,7 +42,7 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 ## 🚀 Quick Start
 
 ```bash
-1. Open ADT (Eclipse) → Navigate to Service Binding: ZTR_UI_TRANSPORT_REQ_O2
+1. Open ADT (Eclipse) → Navigate to Service Binding: ZTR_UI_TRANSPORT_REQ_O4
 2. Click "Preview" → Select "TransportRequest" entity
 3. 🎉 App launches with 35,000+ transport requests!
 ```
@@ -1000,10 +1000,14 @@ Package: ZTRANSPORT_TOOLKIT
 │   └── ZTR_UI_TRANSPORT_REQUEST
 │
 └── 🔗 Service Bindings (1)
-    └── ZTR_UI_TRANSPORT_REQ_O2      (OData V2 - UI)
+    └── ZTR_UI_TRANSPORT_REQ_O4      (OData V4 - UI)
 ```
 
-> **Renamed (2026-10-06):** the service definition was `ZTR_UI_TRANSPORT_REQUEST_O4` and the binding `ZTR_UI_TRANSPORT_REQUEST_2`. They were renamed to SAP's convention (version suffix on the binding, not the definition), and the unused, never-published OData V4 binding was removed. V4 was dropped on purpose: it isn't configured on the development system, and for a read-only app with actions the V2/V4 difference is small. **OData V2 binding names are limited to 26 characters**, which is why the old binding was `_2` and the new one is `REQ_O2` instead of `REQUEST_O2`.
+> **Service layer cleanup (2026-10-06/07):**
+> - **Renamed** to SAP's convention (version suffix on the binding, not on the definition). The service definition was `ZTR_UI_TRANSPORT_REQUEST_O4` and is now `ZTR_UI_TRANSPORT_REQUEST`.
+> - **V2 → V4.** The old V2 binding `ZTR_UI_TRANSPORT_REQUEST_2` (whose `_2` came from the 26-character limit on V2 binding names) was briefly replaced by `ZTR_UI_TRANSPORT_REQ_O2`. The project then moved to **OData V4** (`ZTR_UI_TRANSPORT_REQ_O4`), which had been blocked since FASE 1 only because ADT's Publish button fails on this system. Publishing manually in `/IWFND/V4_ADMIN` works (see [Service Bindings](#publishing-an-odata-v4-binding-via-iwfndv4_admin)). The V2 bindings and the never-published early V4 attempt were removed.
+> - **Why V4 now:** V2 and V4 behave the same for everything built so far (same annotations, tested in preview). V4 adds automatic list refresh (side effects) for FASE 5's background actions, and it's where SAP keeps developing Fiori Elements. Switching before the app is deployed avoids a redeploy later.
+> - **FASE 3.4 grouping note:** the Objects tab's group-by Task/Owner has had no visible effect since bugfix 1.5.8, in V2 and V4 alike. Since then the tab shows only one item's direct entries, so every row falls into a single group. The annotation is kept (now with `visualizations: #AS_LINEITEM`, which V4 needs) for a future combined view.
 
 ---
 
@@ -1544,12 +1548,12 @@ define service ZTR_UI_TRANSPORT_REQUEST {
 <details>
 <summary><b>🔗 Service Bindings</b></summary>
 
-### ZTR_UI_TRANSPORT_REQ_O2 (OData V2 - UI)
+### ZTR_UI_TRANSPORT_REQ_O4 (OData V4 - UI)
 
 **Configuration:**
-- **Binding Type:** OData V2 - UI
+- **Binding Type:** OData V4 - UI
 - **Service Definition:** ZTR_UI_TRANSPORT_REQUEST
-- **Service URL:** `/sap/opu/odata/sap/ZTR_UI_TRANSPORT_REQ_O2`
+- **Service URL:** `/sap/opu/odata4/sap/ztr_ui_transport_req_o4/srvd/sap/ztr_ui_transport_request/0001/`
 
 **Exposed Entities:**
 - TransportRequest
@@ -1561,12 +1565,13 @@ define service ZTR_UI_TRANSPORT_REQUEST {
 
 **Steps to Create:**
 1. Right-click Service Definition → New Service Binding
-2. Name: `ZTR_UI_TRANSPORT_REQ_O2` (V2 binding names: max. 26 characters)
-3. Type: **OData V2 - UI**
-4. Activate → **Publish** (mandatory!)
-5. Click Preview → Select entity → Test
+2. Name: `ZTR_UI_TRANSPORT_REQ_O4`
+3. Type: **OData V4 - UI**
+4. **Activate** (don't click Publish in ADT; it fails on this system)
+5. Publish the service group in `/IWFND/V4_ADMIN` (steps below)
+6. Refresh the binding in ADT → Preview → Select entity → Test
 
-> **Note:** the project started on OData V2 because ADT's Publish button fails for V4 on the development system (see [Troubleshooting](#service-wont-publish)). V4 does work there, but it has to be published manually, as described below.
+> **Note:** the project ran on OData V2 until FASE 4 because ADT's Publish button fails for V4 on the development system (see [Troubleshooting](#service-wont-publish)). V4 does work there, but it has to be published manually, as described below.
 
 ### Publishing an OData V4 binding (via `/IWFND/V4_ADMIN`)
 
@@ -1584,7 +1589,9 @@ In OData V4, services are published as **service groups**. For a RAP binding, th
 - System alias `LOCAL` configured for V4 (check: `/IWFND/V4_ADMIN` → *Routing Configuration*).
 - Gateway administrator authorization to publish service groups.
 
-**Transport:** the service group publication is client-specific customizing. In each follow-on system (QA, production), it has to be published again in `/IWFND/V4_ADMIN`, or come in the customizing request created in step 6. The binding itself travels in the workbench request as usual.
+**Transport:** the binding, its V4 service group object and its authorization defaults travel in the **workbench** request as usual. The **publication** itself is client-specific Gateway customizing, and **`/IWFND/V4_ADMIN` may publish without recording it in any request, even when the client has automatic recording on**. This was verified on this project's system: no request contained the group. For each follow-on system (QA, production), choose one:
+1. **Publish again manually** in `/IWFND/V4_ADMIN` in that system, using the same steps.
+2. **Ship it in a customizing request** with two entries for the group: the publication (view `/IWFND/V_V4_MSGR`, key `<client><group>`) and its system-alias assignment (view `/IWFND/V_V4_RSAG`, key `<client><group>…LOCAL`). This is how other V4 services on the same system were transported.
 
 **Service URL format (V4):** `/sap/opu/odata4/sap/<binding>/srvd/sap/<service_definition>/0001/`, unlike V2's `/sap/opu/odata/sap/<binding>`.
 
