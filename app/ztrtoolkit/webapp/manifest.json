@@ -1,0 +1,136 @@
+{
+  "_version": "1.59.0",
+  "sap.app": {
+    "id": "ztrtoolkit",
+    "type": "application",
+    "i18n": "i18n/i18n.properties",
+    "applicationVersion": {
+      "version": "1.0.0"
+    },
+    "title": "{{appTitle}}",
+    "description": "{{appDescription}}",
+    "dataSources": {
+      "mainService": {
+        "uri": "/sap/opu/odata4/sap/ztr_ui_transport_req_o4/srvd/sap/ztr_ui_transport_request/0001/",
+        "type": "OData",
+        "settings": {
+          "annotations": [],
+          "odataVersion": "4.0"
+        }
+      }
+    }
+  },
+  "sap.ui": {
+    "technology": "UI5",
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": true
+    }
+  },
+  "sap.ui5": {
+    "flexEnabled": true,
+    "dependencies": {
+      "minUI5Version": "1.120.0",
+      "libs": {
+        "sap.m": {},
+        "sap.ui.core": {},
+        "sap.fe.templates": {}
+      }
+    },
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
+    },
+    "models": {
+      "i18n": {
+        "type": "sap.ui.model.resource.ResourceModel",
+        "settings": {
+          "bundleName": "ztrtoolkit.i18n.i18n"
+        }
+      },
+      "": {
+        "dataSource": "mainService",
+        "preload": true,
+        "settings": {
+          "operationMode": "Server",
+          "autoExpandSelect": true,
+          "earlyRequests": true
+        }
+      }
+    },
+    "routing": {
+      "config": {},
+      "routes": [
+        {
+          "pattern": ":?query:",
+          "name": "TransportRequestList",
+          "target": "TransportRequestList"
+        },
+        {
+          "pattern": "TransportRequest({key}):?query:",
+          "name": "TransportRequestObjectPage",
+          "target": "TransportRequestObjectPage"
+        },
+        {
+          "pattern": "TransportRequest({key})/_Tasks({key2}):?query:",
+          "name": "TransportTaskObjectPage",
+          "target": "TransportTaskObjectPage"
+        }
+      ],
+      "targets": {
+        "TransportRequestList": {
+          "type": "Component",
+          "id": "TransportRequestList",
+          "name": "sap.fe.templates.ListReport",
+          "options": {
+            "settings": {
+              "contextPath": "/TransportRequest",
+              "variantManagement": "Page",
+              "navigation": {
+                "TransportRequest": {
+                  "detail": {
+                    "route": "TransportRequestObjectPage"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "TransportRequestObjectPage": {
+          "type": "Component",
+          "id": "TransportRequestObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "editableHeaderContent": false,
+              "contextPath": "/TransportRequest",
+              "navigation": {
+                "_Tasks": {
+                  "detail": {
+                    "route": "TransportTaskObjectPage"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "TransportTaskObjectPage": {
+          "type": "Component",
+          "id": "TransportTaskObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "editableHeaderContent": false,
+              "contextPath": "/TransportRequest/_Tasks"
+            }
+          }
+        }
+      }
+    }
+  },
+  "sap.fiori": {
+    "registrationIds": [],
+    "archeType": "transactional"
+  }
+}

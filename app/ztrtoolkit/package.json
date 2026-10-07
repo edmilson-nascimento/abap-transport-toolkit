@@ -1,0 +1,12 @@
+{
+  "name": "ztrtoolkit",
+  "version": "1.0.0",
+  "description": "Transport Toolkit - Fiori Elements (OData V4) app",
+  "private": true,
+  "scripts": {
+    "build": "ui5 build --clean-dest"
+  },
+  "devDependencies": {
+    "@ui5/cli": "^4"
+  }
+}

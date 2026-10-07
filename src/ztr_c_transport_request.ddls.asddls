@@ -42,6 +42,16 @@ define root view entity ZTR_C_TRANSPORT_REQUEST
       @Search.defaultSearchElement: true
       Description,
 
+      // CTS Project (FASE 4.1)
+      @Search.defaultSearchElement: true
+      @Consumption.valueHelpDefinition: [{
+        entity: { name: 'ZTR_I_PROJECT_VH', element: 'ProjectID' }
+      }]
+      ProjectID,
+
+      @Search.defaultSearchElement: true
+      ProjectDescription,
+
       StatusCriticality,
 
       @Search.defaultSearchElement: true

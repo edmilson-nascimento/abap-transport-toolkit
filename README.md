@@ -26,6 +26,7 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
   - [FASE 3.4: Visual Grouping](#fase-34-visual-grouping-ux--complete)
   - [FASE 3.5: Inverse Search](#fase-35-inverse-search--complete)
   - [FASE 4: Transport Tasks](#fase-4-transport-tasks--complete)
+  - [FASE 4.1: CTS Project field](#fase-41-cts-project-field--implemented-pending-ui-test)
   - [FASE 5: ToC Creator](#fase-5-toc-creator-ztoc_creator-replacement-)
   - [FASE 6: Advanced Actions](#fase-6-advanced-actions-)
 - [Version History](#version-history)
@@ -825,6 +826,63 @@ annotate view ZTR_C_TRANSPORT_TASK with
 
 ---
 
+### **FASE 4.1: CTS Project field** 🔄 IMPLEMENTED (pending UI test)
+
+**Goal:** show the request's **CTS project** (the "Project" field in a request's header in SE09/SE10) in the List Report as a column **and** a filter, and in the Object Page's *General Information*.
+**Requested:** 2026-10-07, before starting FASE 5.
+
+**Where the data lives (verified on the development system):**
+
+| What | Source |
+|---|---|
+| Request → project assignment | `E070A`, attribute `SAP_CTS_PROJECT`; `REFERENCE` holds the CTS project ID (format `<SID>_P00001`) |
+| Project description | `CTSPROJECT-DESCRIPTN` (keyed by the same ID, `CTSPROJECT-TRKORR`); also holds the linked IMG project (`EXTERNALID`) |
+| Not used | `E07T` for the project ID only holds a generic text ("Generated Project Piece List") |
+
+The project is assigned at **request** level, and tasks inherit it. So the field goes on the request only, not on tasks.
+
+```
+CTS Project field
+├── ▫️ ZTR_I_PROJECT_VH (new): project ID + description from CTSPROJECT
+│   └── small fixed list → dropdown filter (@ObjectModel.resultSet.sizeCategory: #XS)
+├── ▫️ ZTR_I_TRANSPORT_REQUEST: association to E070A
+│   │   on trkorr = request and attribute = 'SAP_CTS_PROJECT'
+│   ├── ProjectID (E070A-REFERENCE)
+│   └── ProjectDescription (via ZTR_I_PROJECT_VH), shown as text of ProjectID
+├── ▫️ ZTR_C_TRANSPORT_REQUEST: expose both + value help
+└── ▫️ DDLX: List Report column + filter, General Information field
+
+📊 Result: filter "Project = X" in the List Report; each request shows
+   "<project ID> (<description>)"
+```
+
+**Performance check (lesson from 1.5.8):** `E070A` holds many rows per request (component versions, export timestamps), so the join must use the key (`TRKORR`) plus the attribute literal, never a calculated field. Before closing the phase, time the List Report with and without the project filter.
+
+**Implementation (2026-10-07):**
+- **Helper view.** `ZTR_I_REQUEST_PROJECT` resolves ID + description once. The request view then needs a single `[0..1]` association to it on its key, which avoids chaining a second association off a path field inside the request view.
+- **Service definition** now also exposes `ZTR_I_PROJECT_VH as Projects`, which V4 needs for the filter dropdown.
+- **Display:** `textArrangement: #TEXT_LAST` → "ID (Description)", consistent with Owner.
+- **Data check:** requests with a project show ID + description, and requests without one stay empty. Filtering by project returns only that project's requests.
+- **No app redeploy needed**, since this is a backend-only change.
+- **Source:** [`src/`](src/).
+
+**Field order review (decided 2026-10-07, together with the new field):** the order had grown phase by phase, so it was reorganized by how often each field is used.
+
+| Area | New order |
+|---|---|
+| Filters | Transport Request · Owner · Status · **Project** · Type · Description · Target System |
+| List columns | Transport Request · Description · Status · **Project** · Owner · Type · Creation Date · Target System |
+| General Information | Transport Request · Description · Status · Type · **Project** · Owner |
+
+- **Parent Request** was removed from the list. The list only shows requests (`strkorr = ''`), so the column was always empty. It stays in *Technical Details*.
+- **Creation Time** was removed from the list and stays in *Technical Details*.
+- The label is unified as **"Project"** (the filter showed "Project ID").
+- **Saved variants keep their own column set and order.** New columns or a new order only show up in the *Standard* variant, or after adjusting the saved variant (⚙️ → columns → save).
+
+> **Note:** project names are customer-specific and are **not** reproduced in this README.
+
+---
+
 ### **FASE 5: ToC Creator (ZTOC_CREATOR Replacement)** ▫️ PLANNED
 
 **Goal:** Automate Transport of Copies creation, with pre-transport checks built in  
@@ -970,13 +1028,35 @@ Action Library
 | **1.5.8** | 2026-09-19 | ✅ FASE 3.x - Perf: `_Request` join moved off a calculated field (~2.6s → ~9ms); Objects tab now scoped to direct entries only |
 | **1.6.0** | 2026-09-19 | ✅ FASE 4 - Transport Tasks (Request → Tasks → Objects hierarchy) |
 | **1.6.1** | 2026-10-02 | ✅ Bugfix - Status/Type text read dynamically from `_StatusVH`/`_TypeVH` instead of hand-typed `CASE`, to match SE10 and never drift again |
+| **1.7.0** | 2026-10-07 | ✅ Service layer cleanup (SAP naming, OData V2 → **V4** via `/IWFND/V4_ADMIN`), all toolkit objects in one request, app **deployed** as BSP `ZTR_TOOLKIT` |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator with stateless pre-checks (Level 1 / 2 / 3) |
 
 ---
 
-## 🚢 Deployment (planned)
+## 🚢 Deployment
 
-Until now the app has only run in ADT's Fiori Elements preview, which is a development tool. A deployed app is a generated Fiori Elements project, uploaded to the ABAP system as a BSP application.
+**Status: ✅ deployed (2026-10-07)** to the development system as BSP application `ZTR_TOOLKIT`, opened via `/sap/bc/ui5_ui5/sap/ztr_toolkit/index.html`. It's a Fiori Elements V4 app: List Report + Object Pages for request and task. Source: [`app/ztrtoolkit/`](app/ztrtoolkit/).
+
+### How it was deployed (and how to redeploy)
+
+The usual one-command deploy (`fiori deploy` / VS Code generator) uses the OData service `/UI5/ABAP_REPOSITORY_SRV`, which returns **403** for the developer user on this system. So the app is built locally and uploaded with the standard report instead:
+
+1. Build: in `app/ztrtoolkit/` run `npm install` (first time only), then `npm run build`. The output goes to `dist/`.
+2. In SAP GUI: **SE38 → `/UI5/UI5_REPOSITORY_LOAD`** (there's no transaction code for it)
+   - Name of SAPUI5 Application: `ZTR_TOOLKIT` · option **Upload**
+   - Description, package `ZTRANSPORT_TOOLKIT`, the toolkit's workbench request, codepage `UTF-8`
+3. Execute → select the **`dist` folder** → confirm the file list → *Click here to upload*.
+4. The report updates the SAPUI5 application index and creates the ICF node. The BSP application (`WAPA`), its MIME info object and ICF entries are recorded in the workbench request.
+
+For a **redeploy**, repeat steps 1–3 with the same app name: the report overwrites the existing files. Only needed when the app itself changes (see below).
+
+**Alternatives considered:**
+- `/UI5/UI5_REPOSITORY_LOAD_HTTP` (ZIP from a URL): needs an HTTP server the SAP system can reach.
+- SE80 manual MIME import: tedious, and it skips the app index.
+- abapGit: not installed.
+- Requesting `S_SERVICE` for `/UI5/ABAP_REPOSITORY_SRV`: would enable one-command deploys. Not requested yet.
+
+> **SAP Fiori tools "migration" prompt:** VS Code offers to migrate `app/ztrtoolkit` to the Fiori tools format (local preview with `npm start`, Page Map, Guided Development). The migration writes the **backend URL into `ui5.yaml`**, which is committed. Before accepting, re-add `ui5.yaml` to `.git/info/exclude` and keep a `ui5.example.yaml` with a placeholder. Not done yet.
 
 **Decided before the first deploy (2026-10-06/07):**
 
@@ -992,7 +1072,7 @@ Until now the app has only run in ADT's Fiori Elements preview, which is a devel
 
 **Keeping the system URL out of the public repo:**
 - The app's source (manifest, annotations, i18n) goes into `app/`.
-- The files that contain the backend URL (`ui5.yaml`, `ui5-local.yaml`, `ui5-deploy.yaml`, `.env`) and the build output (`dist/`) are excluded locally via `.git/info/exclude`, **not** `.gitignore`, so the public repo doesn't even reveal that they exist.
+- Files that would contain the backend URL (`ui5-local.yaml`, `ui5-deploy.yaml`, `.env`), plus the build output (`dist/`) and `node_modules/`, are excluded locally via `.git/info/exclude`, **not** `.gitignore`, so the public repo doesn't even reveal that they exist. The committed `ui5.yaml` is build-only and has no URL.
 - The repo carries `*.example.yaml` copies with `https://<sap-host>:<port>` as a placeholder.
 - `manifest.json` only uses a relative service path (`/sap/opu/odata4/...`), so it's safe to commit.
 - Before every commit, scan for hostname, port, user IDs and request numbers.
@@ -1006,13 +1086,15 @@ Until now the app has only run in ADT's Fiori Elements preview, which is a devel
 ```
 Package: ZTRANSPORT_TOOLKIT
 │
-├── 📄 CDS Views (10)
+├── 📄 CDS Views (12)
 │   ├── ZTR_I_TRANSPORT_REQUEST      (Interface View)
 │   ├── ZTR_C_TRANSPORT_REQUEST      (Projection View)
 │   ├── ZTR_I_USER_NAME              (User Name Resolution)
 │   ├── ZTR_I_TRANSPORT_STATUS_VH    (Value Help - Status)
 │   ├── ZTR_I_TRANSPORT_TYPE_VH      (Value Help - Type)
 │   ├── ZTR_I_USER_VH                (Value Help - User)
+│   ├── ZTR_I_PROJECT_VH             (Value Help - CTS Project, CTSPROJECT)
+│   ├── ZTR_I_REQUEST_PROJECT        (Request → CTS Project, E070A)
 │   ├── ZTR_I_TRANSPORT_OBJECT       (Interface View - Objects, E071)
 │   ├── ZTR_C_TRANSPORT_OBJECT       (Projection View - Objects)
 │   ├── ZTR_I_TRANSPORT_TASK         (Interface View - Tasks, E070)

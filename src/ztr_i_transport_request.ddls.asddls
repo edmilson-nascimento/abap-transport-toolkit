@@ -17,6 +17,9 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
   // User Name Resolution
   association [0..1] to ZTR_I_USER_NAME           as _UserName on  $projection.Owner = _UserName.UserID
 
+  // CTS Project (FASE 4.1) - joined on the E070A key (TRKORR), never on a calculated field
+  association [0..1] to ZTR_I_REQUEST_PROJECT     as _Project  on  $projection.TransportRequest = _Project.TransportRequest
+
   // Transport Objects - direct only (FASE 3.2)
   composition [0..*] of ZTR_I_TRANSPORT_OBJECT    as _Objects
 
@@ -60,6 +63,15 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
       @EndUserText.label: 'Description'
       _Text.as4text as Description,
 
+      // CTS Project (FASE 4.1)
+      @EndUserText.label: 'Project ID'
+      @ObjectModel.text.element: ['ProjectDescription']
+      _Project.ProjectID          as ProjectID,
+
+      @EndUserText.label: 'Project'
+      @Semantics.text: true
+      _Project.ProjectDescription as ProjectDescription,
+
       // Criticality for Status Colors (SE10 TRSTATUS semantics)
       @EndUserText.label: 'Status Criticality'
       case trstatus
@@ -94,6 +106,7 @@ define root view entity ZTR_I_TRANSPORT_REQUEST
       _TypeVH,
       _UserVH,
       _UserName,
+      _Project,
       _Objects,
       _Tasks
 }

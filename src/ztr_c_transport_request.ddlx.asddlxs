@@ -8,6 +8,10 @@
   }
 }
 
+// Field order (FASE 4.1 review, 2026-10-07):
+//   Filters      : Transport Request, Owner, Status, Project, Type, Description, Target System
+//   List columns : Transport Request, Description, Status, Project, Owner, Type, Creation Date, Target System
+//   General Info : Transport Request, Description, Status, Type, Project, Owner
 annotate view ZTR_C_TRANSPORT_REQUEST with
 {
 
@@ -76,20 +80,16 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   }
   TransportRequest;
 
-  // Filter with dropdown (hidden in table)
-  @UI.selectionField: [{ position: 15 }]
-  RequestType;
-
-  // Table + General Info (pos 40) + Header DataPoint
+  // Table + Filter + General Info (pos 20)
   @UI: {
-    lineItem: [{ position: 20, importance: #HIGH, label: 'Request Type' }],
-    identification: [{ position: 40, label: 'Request Type' }],
-    dataPoint: { qualifier: 'TypeData', title: 'Request Type' }
+    lineItem: [{ position: 20, importance: #HIGH }],
+    selectionField: [{ position: 60 }],
+    identification: [{ position: 20 }]
   }
-  RequestTypeText;
+  Description;
 
   // Filter with dropdown (hidden in table)
-  @UI.selectionField: [{ position: 25 }]
+  @UI.selectionField: [{ position: 30 }]
   RequestStatus;
 
   // Table + General Info (pos 30) + Header DataPoint with criticality
@@ -100,56 +100,69 @@ annotate view ZTR_C_TRANSPORT_REQUEST with
   }
   StatusText;
 
-  // Table + Filter + Technical Details (pos 10)
+  // CTS Project (FASE 4.1): Table + Filter (dropdown) + General Info (pos 50)
+  // Shown as "ID (Description)"
+  @EndUserText.label: 'Project'
   @UI: {
-    lineItem: [{ position: 40, importance: #MEDIUM }],
+    lineItem: [{ position: 40, importance: #MEDIUM, label: 'Project' }],
     selectionField: [{ position: 40 }],
-    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 10, label: 'Target System' }]
+    identification: [{ position: 50, label: 'Project' }],
+    textArrangement: #TEXT_LAST
   }
-  TargetSystem;
+  ProjectID;
+
+  @UI.hidden: true
+  ProjectDescription;
 
   // Table + Filter (Owner ID for filtering)
   @UI: {
     lineItem: [{ position: 50, importance: #MEDIUM }],
-    selectionField: [{ position: 50 }]
+    selectionField: [{ position: 20 }]
   }
   Owner;
 
-  // General Info (pos 50) + Header DataPoint (Owner full name)
+  // General Info (pos 60) + Header DataPoint (Owner full name)
   @UI: {
-    identification: [{ position: 50, label: 'Owner' }],
+    identification: [{ position: 60, label: 'Owner' }],
     dataPoint: { qualifier: 'OwnerData', title: 'Owner' }
   }
   OwnerName;
 
+  // Filter with dropdown (hidden in table)
+  @UI.selectionField: [{ position: 50 }]
+  RequestType;
+
+  // Table + General Info (pos 40) + Header DataPoint
+  @UI: {
+    lineItem: [{ position: 60, importance: #MEDIUM, label: 'Request Type' }],
+    identification: [{ position: 40, label: 'Request Type' }],
+    dataPoint: { qualifier: 'TypeData', title: 'Request Type' }
+  }
+  RequestTypeText;
+
   // Table + Technical Details (pos 30)
   @UI: {
-    lineItem: [{ position: 60, importance: #LOW }],
+    lineItem: [{ position: 70, importance: #LOW }],
     fieldGroup: [{ qualifier: 'TechnicalDetails', position: 30, label: 'Creation Date' }]
   }
   CreationDate;
 
-  // Table + Technical Details (pos 40)
-  @UI: {
-    lineItem: [{ position: 70, importance: #LOW }],
-    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 40, label: 'Creation Time' }]
-  }
-  CreationTime;
-
-  // Table + Technical Details (pos 20)
+  // Table + Filter + Technical Details (pos 10)
   @UI: {
     lineItem: [{ position: 80, importance: #LOW }],
-    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 20, label: 'Parent Request' }]
+    selectionField: [{ position: 70 }],
+    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 10, label: 'Target System' }]
   }
-  ParentRequest;
+  TargetSystem;
 
-  // Table + Filter + General Info (pos 20)
-  @UI: {
-    lineItem: [{ position: 90, importance: #HIGH }],
-    selectionField: [{ position: 60 }],
-    identification: [{ position: 20 }]
-  }
-  Description;
+  // Technical Details only (pos 40) - removed from the list in FASE 4.1 review
+  @UI.fieldGroup: [{ qualifier: 'TechnicalDetails', position: 40, label: 'Creation Time' }]
+  CreationTime;
+
+  // Technical Details only (pos 20) - removed from the list: the list shows requests
+  // only (strkorr = ''), so this column was always empty
+  @UI.fieldGroup: [{ qualifier: 'TechnicalDetails', position: 20, label: 'Parent Request' }]
+  ParentRequest;
 
   @UI.hidden: true
   StatusCriticality;
