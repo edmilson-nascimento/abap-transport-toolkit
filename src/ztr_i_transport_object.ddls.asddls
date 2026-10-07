@@ -10,6 +10,11 @@ define view entity ZTR_I_TRANSPORT_OBJECT
 
   association to parent ZTR_I_TRANSPORT_REQUEST as _Request on  $projection.EntryRequest = _Request.TransportRequest
 
+  // Object type text - SAP standard (same source as SE10 / SAP's transport app). Never hand-typed.
+  association [0..1] to I_TransportObjectsDescription as _TypeText
+    on  $projection.ProgramId  = _TypeText.TransportRequestObjectPgmID
+    and $projection.ObjectType = _TypeText.TransportRequestObjectType
+
 {
       @EndUserText.label: 'Entry Request/Task'
   key trkorr         as EntryRequest,
@@ -41,27 +46,10 @@ define view entity ZTR_I_TRANSPORT_OBJECT
       @EndUserText.label: 'Task Owner'
       _Task.as4user   as TaskOwner,
 
-      // Object Type Description
+      // Object Type Description - from SAP's object type texts, fallback to the code
       @EndUserText.label: 'Object Type Description'
-      case object
-        when 'PROG' then 'Program'
-        when 'CLAS' then 'Class'
-        when 'INTF' then 'Interface'
-        when 'FUGR' then 'Function Group'
-        when 'FUNC' then 'Function Module'
-        when 'TABL' then 'Table'
-        when 'TTYP' then 'Table Type'
-        when 'DTEL' then 'Data Element'
-        when 'DOMA' then 'Domain'
-        when 'DDLS' then 'CDS View'
-        when 'DDLX' then 'Metadata Extension'
-        when 'BDEF' then 'Behavior Definition'
-        when 'SRVD' then 'Service Definition'
-        when 'SRVB' then 'Service Binding'
-        when 'MSAG' then 'Message Class'
-        when 'DEVC' then 'Package'
-        when 'VIEW' then 'View'
-        when 'ENHO' then 'Enhancement Implementation'
+      case when _TypeText.TransportRequestObjectTypeDesc is not initial
+        then _TypeText.TransportRequestObjectTypeDesc
         else object
       end             as ObjectTypeText,
 

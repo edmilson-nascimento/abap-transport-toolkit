@@ -30,6 +30,7 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
   - [FASE 5: ToC Creator](#fase-5-toc-creator-ztoc_creator-replacement-)
   - [FASE 6: Advanced Actions](#fase-6-advanced-actions-)
 - [Version History](#version-history)
+- [Deployment](#-deployment)
 - [Current Objects](#current-objects)
 - [Source Code](#complete-source-code)
 - [Tech Stack](#tech-stack)
@@ -43,13 +44,14 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 ## 🚀 Quick Start
 
 ```bash
-1. Open ADT (Eclipse) → Navigate to Service Binding: ZTR_UI_TRANSPORT_REQ_O4
-2. Click "Preview" → Select "TransportRequest" entity
-3. 🎉 App launches with 35,000+ transport requests!
+# Deployed app (BSP ZTR_TOOLKIT, Fiori Elements V4)
+https://<sap-host>:<port>/sap/bc/ui5_ui5/sap/ztr_toolkit/index.html
+
+# Or, in ADT (Eclipse): Service Binding ZTR_UI_TRANSPORT_REQ_O4 → Preview → "TransportRequest"
 ```
 
-**Current Status:** FASE 4 Complete ✅ (FASE 3 fully done + Transport Tasks)  
-**Features:** Color-coded status (matching real SE10/domain semantics) • User-friendly descriptions • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects data model (E071) • Request ↔ Objects composition • Objects tab in the Object Page • Transport Tasks hierarchy (Request → Tasks → Objects) • Inverse search (find a Request by object name) • Objects grouped by Task/Owner
+**Current Status:** v1.7 — FASE 4.1 implemented (CTS Project field, pending UI test) · OData V4 · app deployed to the development system  
+**Features:** Color-coded status (matching real SE10/domain semantics) • Texts read from SAP domains, not hand-typed • Dropdown filters • Value Helps • Structured Object Page • Owner name resolution • Transport Objects (E071) • Request → Tasks → Objects navigation • Inverse search (find a Request by object name) • CTS Project column/filter • Deployed Fiori Elements V4 app
 
 
 ## 📖 Overview
@@ -74,8 +76,9 @@ The chosen use case is transport request management - a real-world scenario that
 - ✅ Implement dropdown filters with Value Helps
 - ✅ Structured Object Page with header and facets
 - ✅ Resolve Owner User ID to full name
-- ▫️ Automate Transport of Copies (ToC) creation
-- ▫️ Track objects across transport requests (E071)
+- ✅ Track objects across transport requests and tasks (E071)
+- ✅ Deploy as a standalone Fiori Elements app
+- ▫️ Pre-transport checks + automate Transport of Copies (ToC) creation (FASE 5)
 - ▫️ Implement batch operations and advanced actions
 
 ---
@@ -998,7 +1001,10 @@ Action Library
 ├── ▫️ View in SE09/SE10 (deep link)
 ├── ▫️ Export to Excel
 ├── ▫️ Compare requests
-└── ▫️ Check transport conflicts (ZCHECK_TRANSPORT_CONFLICTS)
+├── ▫️ Check transport conflicts (ZCHECK_TRANSPORT_CONFLICTS)
+└── ▫️ Default List Report filter by request type, hiding SAP piece lists and
+    CTS project lists (deferred 2026-10-07: removable filter in the app, not a
+    restriction in the view; needs an app re-upload)
 
 📊 Result: Complete transport management suite
 ```
@@ -1029,6 +1035,7 @@ Action Library
 | **1.6.0** | 2026-09-19 | ✅ FASE 4 - Transport Tasks (Request → Tasks → Objects hierarchy) |
 | **1.6.1** | 2026-10-02 | ✅ Bugfix - Status/Type text read dynamically from `_StatusVH`/`_TypeVH` instead of hand-typed `CASE`, to match SE10 and never drift again |
 | **1.7.0** | 2026-10-07 | ✅ Service layer cleanup (SAP naming, OData V2 → **V4** via `/IWFND/V4_ADMIN`), all toolkit objects in one request, app **deployed** as BSP `ZTR_TOOLKIT` |
+| **1.7.1** | 2026-10-07 | ✅ FASE 4.1 - CTS Project field + field order review · Object type texts from SAP standard instead of a hand-typed `CASE` · README source section now indexes `src/` |
 | **2.0.0** | TBD | ▫️ FASE 5 - ToC Creator with stateless pre-checks (Level 1 / 2 / 3) |
 
 ---
@@ -1122,537 +1129,38 @@ Package: ZTRANSPORT_TOOLKIT
 
 ## 📝 Complete Source Code
 
-> **Source files:** the current active source of every object is in [`src/`](src/), one file per object, named with abapGit's file conventions (`*.ddls.asddls`, `*.ddlx.asddlxs`, `*.srvd.srvdsrv`). Only the source is exported: no SAP metadata (author, change dates, system info). The service binding has no source and is created in ADT (see below). If the snippets in this section ever differ from `src/`, `src/` is the reference.
-
-<details>
-<summary><b>📄 ZTR_I_TRANSPORT_REQUEST (Interface View)</b></summary>
-
-```abap
-@AbapCatalog.viewEnhancementCategory: [#NONE]
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@EndUserText.label: 'Transport Request - Interface View'
-@Metadata.ignorePropagatedAnnotations: true
-
-define root view entity ZTR_I_TRANSPORT_REQUEST
-  as select from e070
-
-  association [0..1] to e07t                      as _Text     on  $projection.TransportRequest = _Text.trkorr
-                                                               and _Text.langu                  = $session.system_language
-
-  // Value Help Associations
-  association [0..1] to ZTR_I_TRANSPORT_STATUS_VH as _StatusVH on  $projection.RequestStatus = _StatusVH.Status
-  association [0..1] to ZTR_I_TRANSPORT_TYPE_VH   as _TypeVH   on  $projection.RequestType = _TypeVH.RequestType
-  association [0..1] to ZTR_I_USER_VH             as _UserVH   on  $projection.Owner = _UserVH.UserID
-
-  // User Name Resolution
-  association [0..1] to ZTR_I_USER_NAME           as _UserName on  $projection.Owner = _UserName.UserID
-
-  // Transport Objects (FASE 3.2)
-  composition [0..*] of ZTR_I_TRANSPORT_OBJECT    as _Objects
-
-  // Transport Tasks (FASE 4)
-  composition [0..*] of ZTR_I_TRANSPORT_TASK      as _Tasks
-
-{
-      @EndUserText.label: 'Transport Request'
-  key trkorr        as TransportRequest,
-
-      @EndUserText.label: 'Request Type'
-      trfunction    as RequestType,
-
-      @EndUserText.label: 'Request Status'
-      trstatus      as RequestStatus,
-
-      @EndUserText.label: 'Target System'
-      tarsystem     as TargetSystem,
-
-      @EndUserText.label: 'Owner'
-      as4user       as Owner,
-
-      @EndUserText.label: 'Owner Name'
-      case when _UserName.FullName is not initial
-        then concat_with_space(
-               as4user,
-               concat( '(', concat( _UserName.FullName, ')' ) ),
-               1 )
-        else as4user
-      end as OwnerName,
-
-      @EndUserText.label: 'Creation Date'
-      as4date       as CreationDate,
-
-      @EndUserText.label: 'Creation Time'
-      as4time       as CreationTime,
-
-      @EndUserText.label: 'Parent Request'
-      strkorr       as ParentRequest,
-
-      @EndUserText.label: 'Description'
-      _Text.as4text as Description,
-
-      // Criticality for Status Colors
-      @EndUserText.label: 'Status Criticality'
-      case trstatus
-        when 'D' then 3  // Released = Green (Positive)
-        when 'L' then 2  // Modifiable = Yellow (Critical)
-        when 'R' then 1  // Released with errors = Red (Negative)
-        else 0           // Others = Neutral
-      end           as StatusCriticality,
-
-      // Request Type Description
-      @EndUserText.label: 'Request Type Description'
-      case trfunction
-        when 'K' then 'Workbench'
-        when 'W' then 'Customizing'
-        when 'S' then 'Transport of Copies'
-        when 'T' then 'Transport of Copies'
-        when 'E' then 'Customizing (Extended)'
-        when 'Q' then 'Customizing (Request)'
-        when 'R' then 'Workbench (Repair)'
-        else 'Other'
-      end           as RequestTypeText,
-
-      // Status Description
-      @EndUserText.label: 'Status Description'
-      case trstatus
-        when 'D' then 'Released'
-        when 'L' then 'Modifiable'
-        when 'R' then 'Released with Errors'
-        when 'N' then 'Not Released'
-        when 'O' then 'Released (Import Finished)'
-        else 'Unknown'
-      end           as StatusText,
-
-      /* Associations */
-      _Text,
-      _StatusVH,
-      _TypeVH,
-      _UserVH,
-      _UserName,
-      _Objects,
-      _Tasks
-}
-where
-  strkorr = '' // Only ORDERs (no TASKs)
-```
-
-**Bugfix (2026-10-02):** `StatusText`/`RequestTypeText` were hand-typed `CASE` statements that had drifted from the real SAP domain texts (`TRSTATUS`/`TRFUNCTION` in `DD07T`) — e.g. `D` showed "Released" when the domain says **Modifiable**, and `R` showed "Released with Errors" when the domain says **Released** (there's no "error" status in this domain at all). `StatusCriticality` (the header/table color) inherited the same inversion. Found by cross-checking against `DD07T`, the same source `ZTR_I_TRANSPORT_STATUS_VH`/`ZTR_I_TRANSPORT_TYPE_VH` already read for the filter dropdowns — which is why the *filters* always showed the correct text and only the *list/header display* was wrong. Confirmed live: `DEVK900100` (`TRSTATUS = 'D'`) used to display "Released" ✅ green — it was actually **Modifiable**.
-
-Fixed by replacing the hand-typed text with a dynamic lookup through the existing `_StatusVH`/`_TypeVH` associations — the same Value Help entities the filters already use, so the displayed text can never diverge from SE10/the real domain again, including across languages:
-
-```abap
-// Request Type Description - read from the domain (DD07T via _TypeVH)
-case when _TypeVH.TypeText is not initial
-  then _TypeVH.TypeText
-  else trfunction
-end           as RequestTypeText,
-
-// Status Description - read from the domain (DD07T via _StatusVH)
-case when _StatusVH.StatusText is not initial
-  then _StatusVH.StatusText
-  else trstatus
-end           as StatusText,
-
-// Status Criticality - color isn't a domain attribute, stays curated,
-// now matching the real SE10 semantics
-case trstatus
-  when 'R' then 3  // Released = Green (Positive)
-  when 'N' then 3  // Released (import protection) = Green (Positive)
-  when 'D' then 2  // Modifiable = Yellow (Critical)
-  when 'L' then 2  // Modifiable, Protected = Yellow (Critical)
-  when 'O' then 2  // Release Started = Yellow (Critical)
-  when 'P' then 2  // Release Preparation = Yellow (Critical)
-  else 0           // Others = Neutral
-end           as StatusCriticality,
-```
-
-`ZTR_I_TRANSPORT_TASK` got the same fix, plus the two associations it was missing (`_StatusVH`, `_TypeVH`).
-
-</details>
-
-<details>
-<summary><b>📄 ZTR_C_TRANSPORT_REQUEST (Projection View)</b></summary>
-
-```abap
-@EndUserText.label: 'Transport Request - Projection View'
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@Metadata.allowExtensions: true
-@Search.searchable: true
-
-define root view entity ZTR_C_TRANSPORT_REQUEST
-  provider contract transactional_query
-  as projection on ZTR_I_TRANSPORT_REQUEST
-{
-      @Search.defaultSearchElement: true
-      @Search.fuzzinessThreshold: 0.8
-  key TransportRequest,
-
-      @Search.defaultSearchElement: true
-      @Consumption.valueHelpDefinition: [{
-        entity: { name: 'ZTR_I_TRANSPORT_TYPE_VH', element: 'RequestType' }
-      }]
-      RequestType,
-
-      @Search.defaultSearchElement: true
-      @Consumption.valueHelpDefinition: [{
-        entity: { name: 'ZTR_I_TRANSPORT_STATUS_VH', element: 'Status' }
-      }]
-      RequestStatus,
-
-      @Search.defaultSearchElement: true
-      TargetSystem,
-
-      @Search.defaultSearchElement: true
-      @Consumption.valueHelpDefinition: [{
-        entity: { name: 'ZTR_I_USER_VH', element: 'UserID' }
-      }]
-      Owner,
-
-      @Search.defaultSearchElement: true
-      OwnerName,
-
-      CreationDate,
-      CreationTime,
-      ParentRequest,
-
-      @Search.defaultSearchElement: true
-      Description,
-
-      StatusCriticality,
-
-      @Search.defaultSearchElement: true
-      RequestTypeText,
-
-      @Search.defaultSearchElement: true
-      StatusText,
-
-      /* Associations */
-      _Objects : redirected to composition child ZTR_C_TRANSPORT_OBJECT,
-      _Tasks   : redirected to composition child ZTR_C_TRANSPORT_TASK
-}
-```
-
-**Bugfix (2026-09-19):** just listing `_Objects` here re-exposed the *interface's* association target (`ZTR_I_TRANSPORT_OBJECT`), which is never published as an OData entity set — only its projection (`ZTR_C_TRANSPORT_OBJECT`) is. Without an explicit `redirected to composition child`, Fiori Elements has no usable navigation target, so the `#LINEITEM_REFERENCE` facet silently fails to render (no error — it just doesn't show the "Objects" tab). See the matching fix on `ZTR_C_TRANSPORT_OBJECT` below (`_Request : redirected to parent ZTR_C_TRANSPORT_REQUEST`), which is required on the child side before the parent's redirect resolves.
-
-</details>
-
-<details>
-<summary><b>🎨 ZTR_C_TRANSPORT_REQUEST (Metadata Extension)</b></summary>
-
-```abap
-@Metadata.layer: #CORE
-@UI: {
-  headerInfo: {
-    typeName: 'Transport Request',
-    typeNamePlural: 'Transport Requests',
-    title: { type: #STANDARD, value: 'TransportRequest' },
-    description: { value: 'Description' }
-  }
-}
-
-annotate view ZTR_C_TRANSPORT_REQUEST with
-{
-
-  // FACETS - Object Page structure
-  @UI: {
-    facet: [
-      // Header Data Points
-      {
-        id: 'HeaderStatus',
-        purpose: #HEADER,
-        type: #DATAPOINT_REFERENCE,
-        targetQualifier: 'StatusData',
-        position: 10
-      },
-      {
-        id: 'HeaderType',
-        purpose: #HEADER,
-        type: #DATAPOINT_REFERENCE,
-        targetQualifier: 'TypeData',
-        position: 20
-      },
-      {
-        id: 'HeaderOwner',
-        purpose: #HEADER,
-        type: #DATAPOINT_REFERENCE,
-        targetQualifier: 'OwnerData',
-        position: 30
-      },
-      // Body Facets
-      {
-        id: 'GeneralInfo',
-        type: #IDENTIFICATION_REFERENCE,
-        label: 'General Information',
-        position: 10
-      },
-      {
-        id: 'TechnicalDetails',
-        type: #FIELDGROUP_REFERENCE,
-        label: 'Technical Details',
-        targetQualifier: 'TechnicalDetails',
-        position: 20
-      },
-      // Objects Tab (FASE 3.3)
-      {
-        id: 'ObjectsTab',
-        purpose: #STANDARD,
-        type: #LINEITEM_REFERENCE,
-        label: 'Objects',
-        position: 30,
-        targetElement: '_Objects'
-      },
-      // Tasks Tab (FASE 4)
-      {
-        id: 'TasksTab',
-        purpose: #STANDARD,
-        type: #LINEITEM_REFERENCE,
-        label: 'Tasks',
-        position: 40,
-        targetElement: '_Tasks'
-      }
-    ],
-    // List Report & General Information
-    lineItem: [{ position: 10, importance: #HIGH }],
-    selectionField: [{ position: 10 }],
-    identification: [{ position: 10 }]
-  }
-  TransportRequest;
-
-  // Filter with dropdown (hidden in table)
-  @UI.selectionField: [{ position: 15 }]
-  RequestType;
-
-  // Table + General Info (pos 40) + Header DataPoint
-  @UI: {
-    lineItem: [{ position: 20, importance: #HIGH, label: 'Request Type' }],
-    identification: [{ position: 40, label: 'Request Type' }],
-    dataPoint: { qualifier: 'TypeData', title: 'Request Type' }
-  }
-  RequestTypeText;
-
-  // Filter with dropdown (hidden in table)
-  @UI.selectionField: [{ position: 25 }]
-  RequestStatus;
-
-  // Table + General Info (pos 30) + Header DataPoint with criticality
-  @UI: {
-    lineItem: [{ position: 30, importance: #HIGH, label: 'Status', criticality: 'StatusCriticality' }],
-    identification: [{ position: 30, label: 'Status', criticality: 'StatusCriticality' }],
-    dataPoint: { qualifier: 'StatusData', title: 'Status', criticality: 'StatusCriticality' }
-  }
-  StatusText;
-
-  // Table + Filter + Technical Details (pos 10)
-  @UI: {
-    lineItem: [{ position: 40, importance: #MEDIUM }],
-    selectionField: [{ position: 40 }],
-    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 10, label: 'Target System' }]
-  }
-  TargetSystem;
-
-  // Table + Filter (Owner ID for filtering)
-  @UI: {
-    lineItem: [{ position: 50, importance: #MEDIUM }],
-    selectionField: [{ position: 50 }]
-  }
-  Owner;
-
-  // General Info (pos 50) + Header DataPoint (Owner full name)
-  @UI: {
-    identification: [{ position: 50, label: 'Owner' }],
-    dataPoint: { qualifier: 'OwnerData', title: 'Owner' }
-  }
-  OwnerName;
-
-  // Table + Technical Details (pos 30)
-  @UI: {
-    lineItem: [{ position: 60, importance: #LOW }],
-    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 30, label: 'Creation Date' }]
-  }
-  CreationDate;
-
-  // Table + Technical Details (pos 40)
-  @UI: {
-    lineItem: [{ position: 70, importance: #LOW }],
-    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 40, label: 'Creation Time' }]
-  }
-  CreationTime;
-
-  // Table + Technical Details (pos 20)
-  @UI: {
-    lineItem: [{ position: 80, importance: #LOW }],
-    fieldGroup: [{ qualifier: 'TechnicalDetails', position: 20, label: 'Parent Request' }]
-  }
-  ParentRequest;
-
-  // Table + Filter + General Info (pos 20)
-  @UI: {
-    lineItem: [{ position: 90, importance: #HIGH }],
-    selectionField: [{ position: 60 }],
-    identification: [{ position: 20 }]
-  }
-  Description;
-
-  @UI.hidden: true
-  StatusCriticality;
-
-}
-```
-
-</details>
-
-<details>
-<summary><b>📄 ZTR_I_USER_NAME (User Name Resolution)</b></summary>
-
-```abap
-@AbapCatalog.viewEnhancementCategory: [#NONE]
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@EndUserText.label: 'User Name - View Entity'
-@Metadata.ignorePropagatedAnnotations: true
-@ObjectModel.usageType: {
-  serviceQuality: #A,
-  sizeCategory: #L,
-  dataClass: #MASTER
-}
-
-define view entity ZTR_I_USER_NAME
-  as select from usr21
-    inner join adrp on  usr21.persnumber = adrp.persnumber
-                    and adrp.date_from   = '00010101'
-{
-      @ObjectModel.text.element: ['FullName']
-  key usr21.bname        as UserID,
-
-      @Semantics.text: true
-      adrp.name_text     as FullName,
-
-      adrp.name_first    as FirstName,
-      adrp.name_last     as LastName
-}
-```
-
-</details>
-
-<details>
-<summary><b>📄 ZTR_I_TRANSPORT_STATUS_VH (Value Help - Status)</b></summary>
-
-```abap
-@AbapCatalog.viewEnhancementCategory: [#NONE]
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@EndUserText.label: 'Transport Status - Value Help'
-@Metadata.ignorePropagatedAnnotations: true
-@ObjectModel.usageType: {
-  serviceQuality: #A,
-  sizeCategory: #S,
-  dataClass: #CUSTOMIZING
-}
-@ObjectModel.resultSet.sizeCategory: #XS  // Renders as dropdown!
-
-define view entity ZTR_I_TRANSPORT_STATUS_VH
-  as select from dd07t
-{
-      @ObjectModel.text.element: ['StatusText']
-  key domvalue_l as Status,
-
-      @Semantics.text: true
-      ddtext     as StatusText
-}
-where domname    = 'TRSTATUS'
-  and ddlanguage = $session.system_language
-```
-
-</details>
-
-<details>
-<summary><b>📄 ZTR_I_TRANSPORT_TYPE_VH (Value Help - Type)</b></summary>
-
-```abap
-@AbapCatalog.viewEnhancementCategory: [#NONE]
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@EndUserText.label: 'Transport Type - Value Help'
-@Metadata.ignorePropagatedAnnotations: true
-@ObjectModel.usageType: {
-  serviceQuality: #A,
-  sizeCategory: #S,
-  dataClass: #CUSTOMIZING
-}
-@ObjectModel.resultSet.sizeCategory: #XS
-
-define view entity ZTR_I_TRANSPORT_TYPE_VH
-  as select from dd07t
-{
-      @ObjectModel.text.element: ['TypeText']
-      @UI.hidden: true
-  key domvalue_l as RequestType,
-
-      @Semantics.text: true
-      ddtext     as TypeText
-}
-where
-      domname    = 'TRFUNCTION'
-  and ddlanguage = $session.system_language
-```
-
-</details>
-
-<details>
-<summary><b>📄 ZTR_I_USER_VH (Value Help - User)</b></summary>
-
-```abap
-@AbapCatalog.viewEnhancementCategory: [#NONE]
-@AccessControl.authorizationCheck: #NOT_REQUIRED
-@EndUserText.label: 'User - Value Help'
-@Metadata.ignorePropagatedAnnotations: true
-@ObjectModel.usageType: {
-  serviceQuality: #A,
-  sizeCategory: #M,
-  dataClass: #MASTER
-}
-
-define view entity ZTR_I_USER_VH
-  as select distinct from e070
-
-  association [0..1] to ZTR_I_USER_NAME as _UserName on $projection.UserID = _UserName.UserID
-
-{
-      @EndUserText.label: 'User ID'
-      @ObjectModel.text.element: ['UserName']
-  key as4user           as UserID,
-
-      @EndUserText.label: 'Name'
-      @Semantics.text: true
-      case when _UserName.FullName is not initial
-        then _UserName.FullName
-        else as4user
-      end                as UserName,
-
-      /* Associations */
-      _UserName
-}
-where
-  as4user <> ''
-```
-
-**Bugfix (2026-09-19):** the original version set `UserName` to a copy of `as4user`, so the Owner Value Help dialog showed the same code twice (e.g. `DEVUSER (DEVUSER)`) instead of a real name. Fixed by resolving `UserName` through `ZTR_I_USER_NAME` (the same USR21+ADRP lookup used for `OwnerName` in FASE 2.4), with a fallback to the User ID when no name is found.
-
-</details>
-
-<details>
-<summary><b>🌐 ZTR_UI_TRANSPORT_REQUEST (Service Definition)</b></summary>
-
-```abap
-@EndUserText.label: 'Transport Request Service Definition'
-define service ZTR_UI_TRANSPORT_REQUEST {
-  expose ZTR_C_TRANSPORT_REQUEST   as TransportRequest;
-  expose ZTR_I_TRANSPORT_STATUS_VH as TransportStatus;
-  expose ZTR_I_TRANSPORT_TYPE_VH   as TransportType;
-  expose ZTR_I_USER_VH             as Users;
-  expose ZTR_C_TRANSPORT_OBJECT    as TransportObject;
-  expose ZTR_C_TRANSPORT_TASK      as TransportTask;
-}
-```
-
-</details>
+The current active source of every object lives in [`src/`](src/): one file per object, named with abapGit's file conventions. It's exported **source only**, with no SAP metadata (author, change dates, system info). This section only indexes the files and keeps the notes that explain *why* the code looks the way it does. The phase sections above still contain code snippets, but those show each object **as it was at that phase**. When in doubt, `src/` is the reference.
+
+| Object | Type | File |
+|---|---|---|
+| `ZTR_I_TRANSPORT_REQUEST` | Interface view (root, E070) | [`ztr_i_transport_request.ddls.asddls`](src/ztr_i_transport_request.ddls.asddls) |
+| `ZTR_C_TRANSPORT_REQUEST` | Projection view (root) | [`ztr_c_transport_request.ddls.asddls`](src/ztr_c_transport_request.ddls.asddls) |
+| `ZTR_C_TRANSPORT_REQUEST` | Metadata extension | [`ztr_c_transport_request.ddlx.asddlxs`](src/ztr_c_transport_request.ddlx.asddlxs) |
+| `ZTR_I_TRANSPORT_TASK` | Interface view (tasks, E070) | [`ztr_i_transport_task.ddls.asddls`](src/ztr_i_transport_task.ddls.asddls) |
+| `ZTR_C_TRANSPORT_TASK` | Projection view | [`ztr_c_transport_task.ddls.asddls`](src/ztr_c_transport_task.ddls.asddls) |
+| `ZTR_C_TRANSPORT_TASK` | Metadata extension | [`ztr_c_transport_task.ddlx.asddlxs`](src/ztr_c_transport_task.ddlx.asddlxs) |
+| `ZTR_I_TRANSPORT_OBJECT` | Interface view (objects, E071) | [`ztr_i_transport_object.ddls.asddls`](src/ztr_i_transport_object.ddls.asddls) |
+| `ZTR_C_TRANSPORT_OBJECT` | Projection view | [`ztr_c_transport_object.ddls.asddls`](src/ztr_c_transport_object.ddls.asddls) |
+| `ZTR_C_TRANSPORT_OBJECT` | Metadata extension | [`ztr_c_transport_object.ddlx.asddlxs`](src/ztr_c_transport_object.ddlx.asddlxs) |
+| `ZTR_I_USER_NAME` | User name resolution (USR21 + ADRP) | [`ztr_i_user_name.ddls.asddls`](src/ztr_i_user_name.ddls.asddls) |
+| `ZTR_I_TRANSPORT_STATUS_VH` | Value help: status (domain `TRSTATUS`) | [`ztr_i_transport_status_vh.ddls.asddls`](src/ztr_i_transport_status_vh.ddls.asddls) |
+| `ZTR_I_TRANSPORT_TYPE_VH` | Value help: type (domain `TRFUNCTION`) | [`ztr_i_transport_type_vh.ddls.asddls`](src/ztr_i_transport_type_vh.ddls.asddls) |
+| `ZTR_I_USER_VH` | Value help: owner | [`ztr_i_user_vh.ddls.asddls`](src/ztr_i_user_vh.ddls.asddls) |
+| `ZTR_I_PROJECT_VH` | Value help: CTS project (`CTSPROJECT`) | [`ztr_i_project_vh.ddls.asddls`](src/ztr_i_project_vh.ddls.asddls) |
+| `ZTR_I_REQUEST_PROJECT` | Request → CTS project (`E070A`) | [`ztr_i_request_project.ddls.asddls`](src/ztr_i_request_project.ddls.asddls) |
+| `ZTR_UI_TRANSPORT_REQUEST` | Service definition | [`ztr_ui_transport_request.srvd.srvdsrv`](src/ztr_ui_transport_request.srvd.srvdsrv) |
+| `ZTR_UI_TRANSPORT_REQ_O4` | Service binding (OData V4 - UI) | no source; created in ADT and published via `/IWFND/V4_ADMIN` (see below) |
+| `ZTR_TOOLKIT` | BSP app (Fiori Elements V4) | [`app/ztrtoolkit/`](app/ztrtoolkit/) (see [Deployment](#-deployment)) |
+
+### Notes kept from the code (why it looks like this)
+
+**`ZTR_I_TRANSPORT_REQUEST`: bugfix 2026-10-02.** `StatusText`/`RequestTypeText` used to be hand-typed `CASE` statements that had drifted from the real SAP domain texts (`TRSTATUS`/`TRFUNCTION` in `DD07T`). For example, `D` showed "Released" when the domain says **Modifiable**, and `R` showed "Released with Errors" when the domain says **Released**; there's no "error" status in this domain at all. `StatusCriticality` (the header/table color) inherited the same inversion. Both are now read from the domain through `_StatusVH`/`_TypeVH`, the same source the filter dropdowns already used. That is why the *filters* always showed the correct text and only the *list/header display* was wrong.
+
+**`ZTR_I_TRANSPORT_OBJECT`: improvement 2026-10-07.** `ObjectTypeText` used to be a hand-typed `CASE` covering 18 object types. Everything else (`RELE`, `DOCU`, `DTED`, `TABD`, `CPUB`, `CLSD`, `METH`…) was shown as a raw code. It now comes from SAP's own object-type texts (`I_TransportObjectsDescription`, reading `OBJT` + `TRSYST_OBJTYP_T`, the same texts SE10 shows), joined on the type key (`PGMID` + object type) and falling back to the code. Checked before applying: the source has no duplicate keys, so no row multiplication, and it costs about 65 ms extra per query (objects of one request ~16 → ~80 ms; inverse search by object name ~19 → ~75 ms). Texts are SAP's official ones, so some are longer (e.g. "Class (ABAP Objects)"). The view isn't a released API, same as `E070`/`E071`.
+
+**`ZTR_C_TRANSPORT_REQUEST`: bugfix 2026-09-19.** Just listing `_Objects` in the projection re-exposed the *interface's* association target (`ZTR_I_TRANSPORT_OBJECT`), which is never published as an OData entity set. Without an explicit `redirected to composition child`, Fiori Elements has no usable navigation target, so the `#LINEITEM_REFERENCE` facet silently fails to render. The child side needs the matching `_Request : redirected to parent ZTR_C_TRANSPORT_REQUEST` before the parent's redirect resolves.
+
+**`ZTR_I_USER_VH`: bugfix 2026-09-19.** The original version set `UserName` to a copy of `as4user`, so the Owner value help showed the same code twice (e.g. `DEVUSER (DEVUSER)`) instead of a real name. It's now resolved through `ZTR_I_USER_NAME` (the same USR21 + ADRP lookup as `OwnerName`), with a fallback to the user ID when no name is found.
 
 <details>
 <summary><b>🔗 Service Bindings</b></summary>
@@ -1909,8 +1417,8 @@ SOFTWARE.
 
 ---
 
-**Last Updated:** September 2026  
-**Current Phase:** FASE 4 Complete ✅ + Bugfix 1.6.1 (Status/Type text)  
+**Last Updated:** October 2026  
+**Current Phase:** v1.7 — FASE 4.1 (CTS Project field) implemented, pending UI test · OData V4 · app deployed  
 **Next Milestone:** FASE 5 - ToC Creator (Transport of Copies automation)
 
 ---
