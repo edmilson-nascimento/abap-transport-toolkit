@@ -42,7 +42,7 @@ Enterprise-grade SAP transport request management built with **ABAP Cloud** and 
 ## 🚀 Quick Start
 
 ```bash
-1. Open ADT (Eclipse) → Navigate to Service Binding: ZTR_UI_TRANSPORT_REQUEST_2
+1. Open ADT (Eclipse) → Navigate to Service Binding: ZTR_UI_TRANSPORT_REQ_O2
 2. Click "Preview" → Select "TransportRequest" entity
 3. 🎉 App launches with 35,000+ transport requests!
 ```
@@ -997,12 +997,13 @@ Package: ZTRANSPORT_TOOLKIT
 │   └── ZTR_C_TRANSPORT_TASK
 │
 ├── 🌐 Service Definitions (1)
-│   └── ZTR_UI_TRANSPORT_REQUEST_O4
+│   └── ZTR_UI_TRANSPORT_REQUEST
 │
-└── 🔗 Service Bindings (2)
-    ├── ZTR_UI_TRANSPORT_REQUEST     (OData V4 - if available)
-    └── ZTR_UI_TRANSPORT_REQUEST_2   (OData V2 - recommended)
+└── 🔗 Service Bindings (1)
+    └── ZTR_UI_TRANSPORT_REQ_O2      (OData V2 - UI)
 ```
+
+> **Renamed (2026-10-06):** the service definition was `ZTR_UI_TRANSPORT_REQUEST_O4` and the binding `ZTR_UI_TRANSPORT_REQUEST_2`. They were renamed to SAP's convention (version suffix on the binding, not the definition), and the unused, never-published OData V4 binding was removed. V4 was dropped on purpose: it isn't configured on the development system, and for a read-only app with actions the V2/V4 difference is small. **OData V2 binding names are limited to 26 characters**, which is why the old binding was `_2` and the new one is `REQ_O2` instead of `REQUEST_O2`.
 
 ---
 
@@ -1524,11 +1525,11 @@ where
 </details>
 
 <details>
-<summary><b>🌐 ZTR_UI_TRANSPORT_REQUEST_O4 (Service Definition)</b></summary>
+<summary><b>🌐 ZTR_UI_TRANSPORT_REQUEST (Service Definition)</b></summary>
 
 ```abap
 @EndUserText.label: 'Transport Request Service Definition'
-define service ZTR_UI_TRANSPORT_REQUEST_O4 {
+define service ZTR_UI_TRANSPORT_REQUEST {
   expose ZTR_C_TRANSPORT_REQUEST   as TransportRequest;
   expose ZTR_I_TRANSPORT_STATUS_VH as TransportStatus;
   expose ZTR_I_TRANSPORT_TYPE_VH   as TransportType;
@@ -1543,27 +1544,29 @@ define service ZTR_UI_TRANSPORT_REQUEST_O4 {
 <details>
 <summary><b>🔗 Service Bindings</b></summary>
 
-### ZTR_UI_TRANSPORT_REQUEST_2 (OData V2 - Recommended)
+### ZTR_UI_TRANSPORT_REQ_O2 (OData V2 - UI)
 
 **Configuration:**
 - **Binding Type:** OData V2 - UI
-- **Service Definition:** ZTR_UI_TRANSPORT_REQUEST_O4
-- **Service URL:** `/sap/opu/odata/sap/ZTR_UI_TRANSPORT_REQUEST_2`
+- **Service Definition:** ZTR_UI_TRANSPORT_REQUEST
+- **Service URL:** `/sap/opu/odata/sap/ZTR_UI_TRANSPORT_REQ_O2`
 
 **Exposed Entities:**
 - TransportRequest
 - TransportStatus
 - TransportType
 - Users
+- TransportObject
+- TransportTask
 
 **Steps to Create:**
 1. Right-click Service Definition → New Service Binding
-2. Name: `ZTR_UI_TRANSPORT_REQUEST_2`
+2. Name: `ZTR_UI_TRANSPORT_REQ_O2` (V2 binding names: max. 26 characters)
 3. Type: **OData V2 - UI**
 4. Activate → **Publish** (mandatory!)
 5. Click Preview → Select entity → Test
 
-> **Note:** OData V2 is recommended for better compatibility. Use V4 only if your system has it fully configured.
+> **Note:** this project uses OData V2 only. V4 would need additional system configuration, and for this app the difference is small.
 
 </details>
 

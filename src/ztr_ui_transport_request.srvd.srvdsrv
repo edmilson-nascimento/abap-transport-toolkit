@@ -1,5 +1,5 @@
 @EndUserText.label: 'Transport Request Service Definition'
-define service ZTR_UI_TRANSPORT_REQUEST_O4 {
+define service ZTR_UI_TRANSPORT_REQUEST {
   expose ZTR_C_TRANSPORT_REQUEST   as TransportRequest;
   expose ZTR_I_TRANSPORT_STATUS_VH as TransportStatus;
   expose ZTR_I_TRANSPORT_TYPE_VH   as TransportType;
